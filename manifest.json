@@ -1,0 +1,42 @@
+{
+  "name": "Kurt Inventory · Smart Stock & Sales",
+  "short_name": "Kurt POS",
+  "description": "Multi-tenant inventory, POS, and analytics for your sari-sari store.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
+  "background_color": "#0F0820",
+  "theme_color": "#12544F",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "shopping"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "inv.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "inv.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "inv.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "inv.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0F0820" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#12544F" media="(prefers-color-scheme: light)" />
+  <meta name="description" content="Kurt Inventory · Smart Stock & Sales — multi-tenant inventory, POS, and analytics." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Kurt POS" />
+  <title>Kurt Inventory · Smart Stock &amp; Sales</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="inv.png" />
+  <link rel="apple-touch-icon" href="inv.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- External libraries (loaded synchronously so app.js can rely on them) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  
+  <!-- Required for the built-in Camera Scanner -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  
+  <!-- Fixed: Single, working QR code library for GCash / Maya -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<!-- ==================== TOAST ==================== -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- ============================================================
+     AUTH SCREEN
+     ============================================================ -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-bg">
+    <div id="auth-bg-slides" class="auth-bg-slides"></div>
+    <div class="auth-bg-overlay"></div>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+
+  <div class="auth-card">
+    <div class="brand-mark">
+      <img src="inv.png" alt="Kurt Inventory" class="brand-logo" id="brand-logo" />
+    </div>
+    <div class="logo">My Sari-Sari Store</div>
+
+    <div class="subtitle-carousel">
+      <span class="carousel-text">Smart Stock &amp; Sales</span>
+      <span class="carousel-text">Track · Automate · Optimize</span>
+      <span class="carousel-text">Powered By Kurt POS✨</span>
+    </div>
+
+    <div class="auth-tabs" id="auth-tabs">
+      <div class="tab-indicator"></div>
+      <button type="button" id="tab-login" class="tab active">Login</button>
+      <button type="button" id="tab-signup" class="tab">Sign Up</button>
+    </div>
+
+    <form id="auth-form">
+      <label class="field">
+        <span class="field-icon">📧</span>
+        <input type="email" id="email" autocomplete="email" placeholder="Email address" required />
+      </label>
+      <label class="field">
+        <span class="field-icon">🔒</span>
+        <input type="password" id="password" autocomplete="current-password" placeholder="Password" required />
+      </label>
+
+      <label class="remember-row">
+        <input type="checkbox" id="remember-me" checked />
+        <span>Remember me</span>
+      </label>
+
+      <button type="submit" id="auth-submit" class="btn primary block">Login</button>
+      <div id="auth-error" class="error-msg"></div>
+
+      <div class="social-divider"><span>or</span></div>
+
+      <button type="button" id="google-signin-btn" class="btn ghost block google-btn">
+        <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">
+          <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.6 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/>
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+          <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.1-11.3-7.6l-6.5 5C9.6 39.6 16.2 44 24 44z"/>
+          <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.6l6.2 5.2C40.9 35.5 44 30.2 44 24c0-1.2-.1-2.3-.4-3.5z"/>
+        </svg>
+        <span id="google-btn-text">Continue with Google</span>
+      </button>
+    </form>
+
+    <div class="social-divider"><span>Follow us</span></div>
+    <div class="social-links">
+      <a href="#" class="social-icon" aria-label="Facebook" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.5-3.91 3.78-3.91 1.1 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.44 2.91h-2.34V22c4.78-.76 8.43-4.92 8.43-9.94Z"/></svg>
+      </a>
+      <a href="#" class="social-icon" aria-label="Instagram" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
+      </a>
+      <a href="#" class="social-icon" aria-label="X" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z"/></svg>
+      </a>
+      <a href="#" class="social-icon" aria-label="GitHub" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2.14c-3.2.69-3.87-1.36-3.87-1.36-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.18.92-.26 1.91-.39 2.9-.39.99 0 1.98.13 2.9.39 2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.77.11 3.06.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.26 5.69.41.35.78 1.05.78 2.12v3.14c0 .31.21.68.8.56 4.56-1.52 7.85-5.83 7.85-10.91C23.5 5.73 18.27.5 12 .5Z"/></svg>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PENDING SCREEN
+     ============================================================ -->
+<div id="pending-screen" class="auth-screen hidden">
+  <div class="auth-bg">
+    <div id="pending-bg-slides" class="auth-bg-slides"></div>
+    <div class="auth-bg-overlay"></div>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+
+  <div class="auth-card pending-card">
+    <div class="pending-icon">⏳</div>
+    <div class="logo">Awaiting Approval</div>
+    <p class="subtitle static">
+      Your account was created successfully. A super admin needs to approve it
+      before you can access the app.
+    </p>
+    <div class="pending-email" id="pending-email">—</div>
+    <button type="button" id="pending-logout" class="btn ghost block">Sign out</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP SHELL
+     ============================================================ -->
+<div id="app-shell" class="app-shell hidden">
+
+  <!-- ============ TOPBAR ============ -->
+  <header class="topbar">
+    <button type="button" id="nav-toggle" class="nav-toggle" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+
+    <div class="brand-mini">
+      <img src="inv.png" alt="Kurt Inventory" class="brand-mini-logo" id="logo-img" />
+      <div class="brand-mini-text">
+        <div class="logo">My Sari-Sari Store App</div>
+        <div class="brand-tagline-carousel">
+          <span class="brand-tagline">Smart Stock &amp; Sales</span>
+          <span class="brand-tagline">Track · Automate · Optimize</span>
+          <span class="brand-tagline">Powered by Kurt POS</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-greeting">
+      <div id="topbar-avatar" class="topbar-avatar hidden" aria-hidden="true"></div>
+      <div class="topbar-greeting-text">
+        <div class="topbar-greeting-name" id="topbar-greeting-name">👋 Hello!</div>
+        <div class="topbar-greeting-sub" id="topbar-greeting-sub">—</div>
+      </div>
+    </div>
+
+    <!-- NEW: live user count badge -->
+    <div id="user-count-badge" class="user-count-badge hidden" title="Stores using Kurt POS">
+      <span class="user-count-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none"
+             stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </span>
+      <span class="user-count-num" id="user-count-num">—</span>
+      <span class="user-count-label">users</span>
+    </div>
+
+    <div class="user-area">
+      <button type="button" id="sound-toggle" class="toggle-switch" role="switch" aria-checked="true" aria-label="Sound">
+        <span class="toggle-knob"><span class="toggle-emoji" id="sound-icon">🔊</span></span>
+      </button>
+      <button type="button" id="theme-toggle" class="toggle-switch" role="switch" aria-checked="false" aria-label="Theme">
+        <span class="toggle-knob"><span class="toggle-emoji" id="theme-icon">☀️</span></span>
+      </button>
+      <button type="button" id="install-btn" class="btn ghost sm hidden">📲 Install</button>
+      <span class="user-email" id="user-email">—</span>
+      <button type="button" id="logout-btn" class="btn danger sm">Logout</button>
+    </div>
+  </header>
+
+  <!-- ============ OFFLINE BANNER ============ -->
+  <div id="offline-banner" class="offline-banner hidden">
+    📡 Offline mode — changes will sync when you're back online.
+  </div>
+
+  <!-- ========================================================
+       BOTTOM NAV / DESKTOP SIDEBAR
+       ======================================================== -->
+  <nav class="bottom-nav">
+    <div class="sidebar-brand">
+      <img src="inv.png" alt="Kurt Inventory" class="sidebar-brand-logo" id="brand-logo" />
+      <div class="sidebar-brand-text">
+        <strong>My Sari-Sari Store App</strong>
+        <div class="brand-tagline-carousel">
+          <span class="brand-tagline">Smart Stock &amp; Sales</span>
+          <span class="brand-tagline">Track · Automate · Optimize</span>
+          <span class="brand-tagline">Powered by Kurt POS</span>
+        </div>
+      </div>
+    </div>
+
+    <button type="button" class="nav-btn active" data-page="page-dashboard">
+      <span class="nav-icon">📊</span><span>Dashboard</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="page-sales">
+      <span class="nav-icon">🛒</span><span>Point of Sale</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="page-history">
+      <span class="nav-icon">🧾</span><span>History</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="page-add">
+      <span class="nav-icon">➕</span><span>Add Item</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="page-categories">
+      <span class="nav-icon">🗂️</span><span>Categories</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="page-customers">
+      <span class="nav-icon">👥</span><span>Utang Ledger</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="page-labels">
+      <span class="nav-icon">🏷️</span><span>Labels</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="page-gcash">
+      <span class="nav-icon-gcash"><img src="gcash.png" alt="GCash" /></span>
+      <span>GCash</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="page-maya">
+      <span class="nav-icon-maya"><img src="Maya.jpg" alt="Pay Maya" /></span>
+      <span>Pay Maya</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="page-eload">
+      <span class="nav-icon">📱</span><span>E-Load</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="page-expenses">
+      <span class="nav-icon">💸</span><span>Expenses</span>
+    </button>
+    <button type="button" class="nav-btn hidden" id="nav-admin" data-page="page-admin">
+      <span class="nav-icon">🛡️</span><span>Admin</span>
+    </button>
+
+    <button type="button" class="nav-btn nav-btn-terms" id="nav-terms" title="Terms & Conditions">
+      <span class="nav-icon">📄</span><span>Terms</span>
+    </button>
+
+
+    <button type="button" id="nav-download-app" class="nav-btn nav-btn-download" title="Download / Install App">
+      <span class="nav-icon nav-icon-download" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20"
+             fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </span>
+      <span id="nav-download-label">Download App</span>
+    </button>
+    
+    <!-- ⬇️ SHARE APP BUTTON — NEW, PASTE HERE ⬇️ -->
+    <button type="button" id="nav-share-app" class="nav-btn nav-btn-share" title="Share Kurt POS with a friend">
+      <span class="nav-icon nav-icon-share" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20"
+             fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="5" r="3"/>
+          <circle cx="6" cy="12" r="3"/>
+          <circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </span>
+      <span id="nav-share-label">Share App</span>
+    </button>
+    <!-- ⬆️ END SHARE APP BUTTON ⬆️ -->
+
+    
+    <button type="button" id="logout-btn-mobile" class="nav-btn nav-btn-logout" style="display:none"></button>
+  </nav>
+  <div id="nav-backdrop" class="nav-backdrop"></div>
+
+  
+
+  <!-- ========================================================
+       PAGE — DASHBOARD
+       ======================================================== -->
+  <main id="page-dashboard" class="page">
+  <div class="dash-top">
+    <h2 class="page-title">Dashboard</h2>
+    <div class="dash-top-actions">
+      <span class="dash-live-badge">● Live</span>
+      <button type="button" id="dash-refresh-btn" class="dash-refresh-btn" title="Refresh">
+        <span class="dash-refresh-icon">🔄</span>
+        <span class="dash-refresh-label">Refresh</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ STAT CARDS ============ -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <span class="stat-label">Running Sales</span>
+      <span class="stat-value" id="stat-sales">₱0.00</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Stock Value</span>
+      <span class="stat-value" id="stat-value">₱0.00</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Profit</span>
+      <span class="stat-value" id="stat-profit">₱0.00</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Total Items</span>
+      <span class="stat-value" id="stat-total">0</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Low Stock</span>
+      <span class="stat-value" id="stat-low">0</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Categories</span>
+      <span class="stat-value" id="stat-cats">0</span>
+    </div>
+  </div>
+
+  <!-- ============ SALES OVERVIEW + DAILY BREAKDOWN ============ -->
+  <div class="dash-hero">
+    <section class="so-panel">
+      <div class="so-head">
+        <h3 class="so-title">Sales Overview</h3>
+        <select id="month-filter" class="so-month-select">
+          <option value="">All Time</option>
+        </select>
+      </div>
+
+      <div class="so-tiles">
+        <div class="so-tile">
+          <span class="so-tile-label">Today</span>
+          <span class="so-tile-value" id="so-today">₱0.00</span>
+        </div>
+        <div class="so-tile">
+          <span class="so-tile-label">This Week</span>
+          <span class="so-tile-value" id="so-week">₱0.00</span>
+        </div>
+        <div class="so-tile">
+          <span class="so-tile-label">Selected Month</span>
+          <span class="so-tile-value" id="so-month">₱0.00</span>
+        </div>
+        <div class="so-tile highlight">
+          <span class="so-tile-label">Running Total</span>
+          <span class="so-tile-value" id="so-running">₱0.00</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="daily-panel">
+      <div class="daily-head">
+        <h3 class="daily-title">Daily Breakdown</h3>
+        <span class="daily-total" id="so-daily-total">₱0.00</span>
+      </div>
+      <div class="daily-list" id="so-daily-list"></div>
+    </section>
+  </div>
+
+  <!-- ============ KPI CARDS ============ -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <span class="kpi-label">Avg Order Value</span>
+      <span class="kpi-value" id="kpi-aov">₱0.00</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Items Sold</span>
+      <span class="kpi-value" id="kpi-items">0</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Peak Hour</span>
+      <span class="kpi-value" id="kpi-peak">–</span>
+    </div>
+    <div class="kpi-card profit">
+      <span class="kpi-label">Profit Margin</span>
+      <span class="kpi-value" id="kpi-margin">0%</span>
+    </div>
+  </div>
+
+    <!-- ============ MAIN CHARTS ============ -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-card-head">
+        <h3 class="card-title">Where Your Sales Went</h3>
+        <span class="chart-hint">Sold items only</span>
+      </div>
+      <div class="chart-wrapper half-pie-wrapper">
+        <canvas id="sales-vs-cost-chart"></canvas>
+      </div>
+      <div class="svc-info" id="sales-vs-cost-info"></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-head">
+        <h3 class="card-title">Sales by Category</h3>
+        <select id="sales-cat-analytics-filter" class="cat-analytics-select">
+          <option value="">All Categories</option>
+        </select>
+      </div>
+      <div class="sales-cat-summary hidden" id="sales-cat-summary">
+        <div class="scs-row">
+          <span class="scs-label">Category</span>
+          <span class="scs-value" id="scs-category">—</span>
+        </div>
+        <div class="scs-row highlight">
+          <span class="scs-label">Total</span>
+          <span class="scs-value amount" id="scs-total">₱0.00</span>
+        </div>
+        <div class="scs-meta">
+          <span>🧾 <strong id="scs-txns">0</strong> transactions</span>
+          <span>📦 <strong id="scs-units">0</strong> units</span>
+        </div>
+      </div>
+      <div class="chart-wrapper pie-wrapper">
+        <canvas id="sales-category-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TREND CHARTS ============ -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-card-head">
+        <h3 class="card-title">Sales — Last 30 Days</h3>
+        <span class="chart-hint">Daily total</span>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="sales-trend-chart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-head">
+        <h3 class="card-title">Profit — Last 30 Days</h3>
+        <span class="chart-hint">Daily profit</span>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="profit-trend-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TOP PERFORMERS ============ -->
+  <div class="section-heading-row">
+    <h3 class="section-heading">🏆 Top Performers</h3>
+  </div>
+  <div class="rank-panels">
+    <div class="rank-panel">
+      <header class="rank-panel-head">
+        <div>
+          <div class="rank-panel-title">💰 Top Revenue</div>
+          <div class="rank-panel-sub">Best sellers by money earned</div>
+        </div>
+        <span class="rank-panel-chip">Top 5</span>
+      </header>
+      <div class="rank-panel-list" id="top-revenue-list"></div>
+    </div>
+
+    <div class="rank-panel">
+      <header class="rank-panel-head">
+        <div>
+          <div class="rank-panel-title">🏆 Top Profit</div>
+          <div class="rank-panel-sub">Best sellers by margin</div>
+        </div>
+        <span class="rank-panel-chip">Top 5</span>
+      </header>
+      <div class="rank-panel-list" id="top-profit-list"></div>
+    </div>
+  </div>
+
+  <!-- ============ MOVEMENT TRENDS ============ -->
+  <div class="section-heading-row">
+    <h3 class="section-heading">📈 Product Movement</h3>
+  </div>
+  <div class="rank-panels">
+    <div class="rank-panel">
+      <header class="rank-panel-head">
+        <div>
+          <div class="rank-panel-title">🔥 Fast Moving</div>
+          <div class="rank-panel-sub">Highest quantity sold</div>
+        </div>
+        <span class="rank-panel-chip">Top 5</span>
+      </header>
+      <div class="rank-panel-list" id="fast-moving-list"></div>
+    </div>
+
+    <div class="rank-panel">
+      <header class="rank-panel-head">
+        <div>
+          <div class="rank-panel-title">🐢 Slow Moving</div>
+          <div class="rank-panel-sub">Least sold in the last 30 days</div>
+        </div>
+        <span class="rank-panel-chip">Bottom 5</span>
+      </header>
+      <div class="rank-panel-list" id="slow-moving-list"></div>
+    </div>
+  </div>
+
+  <!-- ============ LIVE INVENTORY ============ -->
+  <h3 class="section-heading">📦 Live Inventory</h3>
+  <div class="toolbar compact">
+    <input type="search" id="dash-search" placeholder="Search name, SKU, or barcode…" />
+  </div>
+  <div class="inventory-list compact" id="dashboard-inventory"></div>
+
+  <!-- ============ LOW STOCK ============ -->
+  <h3 class="section-heading">⚠️ Low Stock Alerts</h3>
+  <div class="inventory-list compact" id="low-stock-list"></div>
+
+  <!-- ============ EXPIRY ============ -->
+  <div id="expiry-banner" class="expiry-banner hidden">
+    <span class="expiry-banner-icon">⏰</span>
+    <span class="expiry-banner-text" id="expiry-banner-text"></span>
+    <button type="button" class="btn sm" id="expiry-banner-btn">View</button>
+  </div>
+  <h3 class="section-heading">⏰ Expiring Soon</h3>
+  <div class="inventory-list compact" id="expiring-list"></div>
+
+  <!-- ============ MOVEMENTS ============ -->
+  <h3 class="section-heading">🔁 Recent Movements</h3>
+  <div class="movement-toolbar compact">
+    <input type="search" id="movement-search" placeholder="Search movements…" />
+    <select id="movement-filter">
+      <option value="">All Types</option>
+      <option value="in">IN (+)</option>
+      <option value="out">OUT (−)</option>
+    </select>
+    <select id="movement-range">
+      <option value="">All Time</option>
+      <option value="today">Today</option>
+      <option value="7">Last 7 days</option>
+      <option value="30">Last 30 days</option>
+    </select>
+    <button type="button" class="btn ghost sm" id="print-movements">🖨️ Print</button>
+    <button type="button" class="btn ghost sm" id="export-movements">📊 Excel</button>
+  </div>
+  <div class="movements-list" id="movements-list"></div>
+</main>
+
+  <!-- ========================================================
+       PAGE — POINT OF SALE
+       ======================================================== -->
+  <main id="page-sales" class="page hidden">
+    <h2 class="page-title">🛒 Point of Sale</h2>
+
+    <div class="pos-layout">
+      <!-- Products -->
+      <section class="pos-products">
+      <div class="pos-search-row">
+  <input type="search" id="sales-search" placeholder="Search products…" />
+  <select id="sales-cat-filter" class="pos-cat-filter">
+    <option value="">All Categories</option>
+  </select>
+
+  <!-- External USB / Bluetooth barcode scanner (keyboard-wedge) -->
+  <div class="ext-scan" title="External barcode scanner — click here, then scan">
+    <span class="ext-scan-icon" aria-hidden="true">▣</span>
+    <input
+      type="text"
+      id="external-barcode-input"
+      class="ext-scan-input"
+      placeholder="Scan barcode…"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      inputmode="text"
+      aria-label="External barcode scanner input"
+    />
+    <span class="ext-scan-dot" id="ext-scan-dot" aria-hidden="true" title="Scanner status"></span>
+  </div>
+
+  <button type="button" class="btn ghost" id="scan-sale-btn">📷 Scan</button>
+</div>
+        <div class="pos-grid" id="sales-products-grid"></div>
+      </section>
+
+      <!-- Cart -->
+      <aside class="pos-cart">
+        <div class="pos-cart-head">
+          <h3>Cart</h3>
+          <button type="button" class="btn ghost sm" id="pos-clear-btn">Clear</button>
+        </div>
+
+        <div class="pos-cart-items" id="pos-cart-items"></div>
+
+        <div class="pos-totals">
+          <div class="pos-row">
+            <span>Total</span>
+            <span class="pos-total-amount" id="pos-total">₱0.00</span>
+          </div>
+
+          <div class="pos-row">
+            <span>Payment</span>
+            <select id="pos-payment-mode">
+              <option value="cash">💵 Cash</option>
+              <option value="credit">📝 Utang (Credit)</option>
+            </select>
+          </div>
+
+          <div class="pos-row" id="pos-customer-row">
+            <span>Customer</span>
+            <select id="pos-customer">
+              <option value="">— Walk-in customer —</option>
+            </select>
+          </div>
+
+          <div class="pos-row pos-change-row" id="pos-cash-row">
+            <span>Cash</span>
+            <input type="number" id="pos-cash" placeholder="0.00" inputmode="decimal" step="0.01" min="0" />
+          </div>
+
+          <div class="pos-row pos-change-row" id="pos-change-row">
+            <span>Change</span>
+            <span id="pos-change">₱0.00</span>
+          </div>
+
+          <div class="pos-credit-note hidden" id="pos-credit-note">
+            📝 The customer's utang balance will be updated automatically.
+          </div>
+
+          <button type="button" class="btn primary block" id="pos-checkout">💳 Complete Sale</button>
+        </div>
+      </aside>
+    </div>
+
+      <!-- Recent sales -->
+    <div class="section-heading-row">
+      <h3 class="section-heading">🧾 Recent Sales</h3>
+      <div class="export-btns">
+        <button type="button" class="btn ghost sm" id="export-sales-excel">📊 Excel</button>
+        <button type="button" class="btn ghost sm" id="export-sales-pdf">📄 PDF</button>
+      </div>
+    </div>
+
+    <!-- Search bar -->
+    <div class="sales-toolbar">
+      <input type="search" id="recent-sales-search" placeholder="Search by receipt, item, category, note…" />
+      <select id="recent-sales-cat">
+        <option value="">All Categories</option>
+      </select>
+    </div>
+
+    <div class="sales-list" id="sales-list"></div>
+
+    <!-- Category summary -->
+    <h3 class="section-heading">📂 Sales by Category</h3>
+    <div class="category-summary" id="sales-category-summary"></div>
+  </main>
+
+  <!-- ========================================================
+       PAGE — HISTORY
+       ======================================================== -->
+  <main id="page-history" class="page hidden">
+    <h2 class="page-title">🧾 Sales History</h2>
+
+    <div class="history-toolbar">
+      <input type="search" id="history-search" placeholder="Search receipt, item, cashier…" />
+      <select id="history-filter">
+        <option value="all">All Time</option>
+        <option value="today">Today</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+      </select>
+      <select id="history-cat-filter">
+        <option value="">All Categories</option>
+      </select>
+      <button type="button" class="btn ghost sm" id="export-history-excel">📊 Excel</button>
+      <button type="button" class="btn ghost sm" id="export-history-pdf">📄 PDF</button>
+    </div>
+
+    <!-- ⭐ NEW: bulk-select bar -->
+    <div id="history-bulk-bar" class="history-bulk-bar hidden">
+      <label class="bulk-select-all">
+        <input type="checkbox" id="history-select-all" />
+        <span>Select all</span>
+      </label>
+      <span id="history-selected-count" class="bulk-count">0 selected</span>
+      <button type="button" class="btn danger sm" id="history-delete-selected" disabled>🗑️ Delete selected</button>
+    </div>
+
+    <div class="history-list" id="history-list"></div>
+    <div class="pagination-bar" id="history-pagination"></div>
+
+    <h3 class="section-heading">📂 Category Summary</h3>
+    <div class="category-summary" id="history-category-summary"></div>
+  </main>
+
+  <!-- ========================================================
+       PAGE — ADD ITEM
+       ======================================================== -->
+  <main id="page-add" class="page hidden">
+    <h2 class="page-title">➕ Add / Edit Item</h2>
+
+    <!-- ============ INVENTORY ANALYTICS DASHBOARD ============ -->
+    <div class="inv-analytics-panel">
+      <div class="inv-analytics-header">
+        <h3 class="section-heading" style="margin:0;">📊 Inventory Overview</h3>
+        <span class="inv-analytics-badge">Live Data</span>
+      </div>
+      <div class="inv-analytics-grid">
+        <div class="inv-stat-card value">
+          <div class="inv-stat-icon">💰</div>
+          <div class="inv-stat-info">
+            <span class="inv-stat-label">Total Stock Value (Retail)</span>
+            <strong class="inv-stat-value" id="inv-total-retail">₱0.00</strong>
+          </div>
+        </div>
+        <div class="inv-stat-card cost">
+          <div class="inv-stat-icon">📉</div>
+          <div class="inv-stat-info">
+            <span class="inv-stat-label">Total Stock Cost</span>
+            <strong class="inv-stat-value" id="inv-total-cost">₱0.00</strong>
+          </div>
+        </div>
+        <div class="inv-stat-card profit">
+          <div class="inv-stat-icon">📈</div>
+          <div class="inv-stat-info">
+            <span class="inv-stat-label">Potential Profit</span>
+            <strong class="inv-stat-value" id="inv-total-potential-profit">₱0.00</strong>
+          </div>
+        </div>
+        <div class="inv-stat-card items">
+          <div class="inv-stat-icon">📦</div>
+          <div class="inv-stat-info">
+            <span class="inv-stat-label">Total Items on Shelf</span>
+            <strong class="inv-stat-value" id="inv-total-items">0</strong>
+          </div>
+        </div>
+      </div>
+      <div class="inv-analytics-split">
+        <div class="inv-alerts-panel">
+          <h4 class="inv-alerts-title">⚠️ Stock Alerts</h4>
+          <div class="inv-alert-row" id="inv-alert-low-stock">
+            <span class="inv-alert-dot low"></span>
+            <span class="inv-alert-label">Low Stock Items</span>
+            <strong class="inv-alert-count" id="inv-count-low">0</strong>
+          </div>
+          <div class="inv-alert-row" id="inv-alert-out-stock">
+            <span class="inv-alert-dot out"></span>
+            <span class="inv-alert-label">Out of Stock</span>
+            <strong class="inv-alert-count" id="inv-count-out">0</strong>
+          </div>
+          <div class="inv-alert-row" id="inv-alert-expiring">
+            <span class="inv-alert-dot expiring"></span>
+            <span class="inv-alert-label">Expiring Soon</span>
+            <strong class="inv-alert-count" id="inv-count-expiring">0</strong>
+          </div>
+        </div>
+        <div class="inv-category-panel">
+          <h4 class="inv-alerts-title">🗂️ Top Categories by Value</h4>
+          <div class="inv-category-list" id="inv-category-breakdown"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <form id="item-form">
+        <input type="hidden" id="item-id" />
+        <input type="hidden" id="item-image-data" />
+
+        <label>
+          Product name *
+          <input type="text" id="item-name" placeholder="e.g. White bread" required />
+        </label>
+
+        <div class="dash-2col">
+          <label>
+            SKU *
+            <input type="text" id="item-sku" placeholder="Auto" required />
+          </label>
+          <label>
+            Barcode
+            <div class="input-with-btn">
+              <input type="text" id="item-barcode" placeholder="Scan or type" />
+              <button type="button" class="btn ghost scan-btn" id="scan-barcode-btn">📷</button>
+            </div>
+          </label>
+        </div>
+
+        <label>
+          Category *
+          <input type="text" id="item-category" list="category-list" placeholder="e.g. Snacks" required />
+        </label>
+        <datalist id="category-list"></datalist>
+
+        <div class="dash-2col">
+          <label>
+            Quantity
+            <input type="number" id="item-qty" min="0" step="1" value="0" />
+          </label>
+          <label>
+            Cost (₱)
+            <input type="number" id="item-cost" min="0" step="0.01" placeholder="0.00" />
+          </label>
+        </div>
+
+        <div class="discount-grid">
+          <label>
+            Selling Price (₱) *
+            <input type="number" id="item-price" min="0" step="0.01" placeholder="0.00" required />
+          </label>
+          <label>
+            Discount Price (₱)
+            <input type="number" id="item-discount-price" min="0" step="0.01" placeholder="0.00" />
+          </label>
+        </div>
+        <div id="item-discount-preview" class="hidden"></div>
+
+        <div class="dash-2col">
+          <label>
+            Expiry date
+            <input type="date" id="item-expiry" />
+          </label>
+          <label>
+            Low-stock threshold
+            <input type="number" id="item-threshold" min="0" step="1" value="5" />
+          </label>
+        </div>
+
+        <label>
+          Photo
+          <div class="photo-upload">
+            <div class="photo-preview" id="photo-preview">
+              <span class="photo-placeholder">📷<br />Add Photo</span>
+            </div>
+            <div class="photo-actions">
+              <button type="button" class="btn primary" id="photo-camera-btn">📷 Camera</button>
+              <button type="button" class="btn ghost" id="photo-pick-btn">🖼️ Gallery</button>
+              <button type="button" class="btn danger hidden" id="photo-remove-btn">🗑️ Remove</button>
+            </div>
+          </div>
+          <input type="file" id="item-image" accept="image/*" hidden />
+          <input type="file" id="item-image-camera" accept="image/*" capture="environment" hidden />
+        </label>
+
+        <div class="section-heading-row" style="margin-top:8px;">
+          <button type="submit" class="btn primary">💾 Save Item</button>
+          <button type="button" class="btn ghost" id="import-inv-excel-btn">📥 Import Excel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Inventory list -->
+    <div class="section-heading-row">
+      <h3 class="section-heading">📦 Inventory</h3>
+      <div class="export-btns">
+        <button type="button" class="btn ghost sm" id="export-inv-excel">📊 Excel</button>
+        <button type="button" class="btn ghost sm" id="export-inv-pdf">📄 PDF</button>
+      </div>
+    </div>
+    <div class="toolbar compact">
+      <input type="search" id="search-input" placeholder="Search inventory…" />
+      <select id="filter-category">
+        <option value="">All Categories</option>
+      </select>
+    </div>
+    <div class="inventory-list" id="inventory-list"></div>
+    <div class="pagination-bar" id="inventory-pagination"></div>
+  </main>
+
+  <!-- ========================================================
+       PAGE — CATEGORIES
+       ======================================================== -->
+  <main id="page-categories" class="page hidden">
+    <h2 class="page-title">🗂️ Categories</h2>
+
+    <div class="card">
+      <form id="category-form" class="inline-form">
+        <input type="text" id="new-category" placeholder="New category name" required />
+        <button type="submit" class="btn primary">➕ Add</button>
+      </form>
+      <span class="hint">Category images are fetched automatically from Pexels.</span>
+    </div>
+
+    <div class="category-summary" id="category-grid"></div>
+  </main>
+
+  <!-- ========================================================
+       PAGE — CUSTOMERS
+       ======================================================== -->
+  <main id="page-customers" class="page hidden">
+    <h2 class="page-title">👥 Utang Ledger</h2>
+
+    <div class="card">
+      <h3 class="card-title" id="customer-form-title">Add Customer</h3>
+      <form id="customer-form">
+        <input type="hidden" id="customer-id" />
+        <div class="dash-2col">
+          <label>
+            Name *
+            <input type="text" id="customer-name" required />
+          </label>
+          <label>
+            Phone
+            <input type="tel" id="customer-phone" />
+          </label>
+        </div>
+        <label>
+          Address
+          <input type="text" id="customer-address" />
+        </label>
+        <label>
+          Notes
+          <textarea id="customer-notes" rows="2"></textarea>
+        </label>
+        <button type="submit" class="btn primary">💾 Save Customer</button>
+      </form>
+    </div>
+
+    <h3 class="section-heading">Customer List</h3>
+    <div class="toolbar compact">
+      <input type="search" id="customers-search" placeholder="Search name or phone…" />
+    </div>
+    <div class="customers-list" id="customers-list"></div>
+
+    <h3 class="section-heading">💵 Utang Payment History</h3>
+
+    <!-- ⭐ NEW: bulk-select bar for payments -->
+    <div id="payments-bulk-bar" class="history-bulk-bar hidden">
+      <label class="bulk-select-all">
+        <input type="checkbox" id="payments-select-all" />
+        <span>Select all</span>
+      </label>
+      <span id="payments-selected-count" class="bulk-count">0 selected</span>
+      <button type="button" class="btn danger sm" id="payments-delete-selected" disabled>🗑️ Delete selected</button>
+    </div>
+
+    <div class="toolbar compact">
+      <input type="search" id="utang-history-search" placeholder="Search customer or note…" />
+    </div>
+    <div class="utang-payment-history" id="utang-payment-history"></div>
+  </main>
+
+  <!-- ========================================================
+       PAGE — LABELS
+       ======================================================== -->
+  <main id="page-labels" class="page hidden">
+    <h2 class="page-title">🏷️ Barcode Labels</h2>
+
+    <div class="card compact">
+      <div class="labels-controls">
+        <label class="labels-field">
+          <span>Label Size</span>
+          <select id="labels-size"></select>
+        </label>
+        <label class="labels-field">
+          <span>Barcode Format</span>
+          <select id="labels-format"></select>
+        </label>
+      </div>
+    </div>
+
+    <div class="labels-toolbar labels-toolbar-floating">
+      <input type="search" id="labels-search" placeholder="Search products…" />
+      <button type="button" class="btn ghost sm" id="labels-select-all">Select All</button>
+      <button type="button" class="btn ghost sm" id="labels-clear">Clear</button>
+      <span class="labels-summary" id="labels-summary">No products selected</span>
+      <button type="button" class="btn primary" id="labels-print-btn" disabled>🖨️ Print Labels</button>
+    </div>
+
+    <div class="labels-product-list" id="labels-product-list"></div>
+  </main>
+
+  <!-- ========================================================
+       PAGE — GCASH
+       ======================================================== -->
+  <main id="page-gcash" class="page hidden">
+    <h2 class="page-title gcash-page-title">
+      <img src="gcash.png" alt="" class="gcash-title-logo" />
+      GCash Tracker
+    </h2>
+
+    <!-- Summary -->
+    <div class="gcash-summary">
+      <div class="gcash-stat in">
+        <span class="gcash-stat-label">Cash In — Today</span>
+        <strong id="gcash-in-today">₱0.00</strong>
+        <small id="gcash-in-count">0 transactions</small>
+      </div>
+      <div class="gcash-stat out">
+        <span class="gcash-stat-label">Cash Out — Today</span>
+        <strong id="gcash-out-today">₱0.00</strong>
+        <small id="gcash-out-count">0 transactions</small>
+      </div>
+      <div class="gcash-stat fee">
+        <span class="gcash-stat-label">Fees — Today</span>
+        <strong id="gcash-fee-today">₱0.00</strong>
+        <small id="gcash-fee-month">This month: ₱0.00</small>
+      </div>
+      <div class="gcash-stat balance">
+        <span class="gcash-stat-label">Balance</span>
+        <strong id="gcash-balance">₱0.00</strong>
+        <button type="button" class="gcash-set-opening" id="gcash-set-opening">Set Opening</button>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <div class="card compact">
+      <h3 class="card-title" id="gcash-form-title">Record GCash Transaction</h3>
+      <form id="gcash-form">
+        <input type="hidden" id="gcash-id" />
+        <div class="dash-2col">
+          <label>
+            Type
+            <select id="gcash-type"></select>
+          </label>
+          <label>
+            Amount (₱) *
+            <input type="number" id="gcash-amount" min="0" step="0.01" required />
+          </label>
+        </div>
+        <div class="dash-2col">
+          <label>
+            Service Fee (₱)
+            <input type="number" id="gcash-fee" min="0" step="0.01" value="0" />
+          </label>
+          <label>
+            Customer
+            <input type="text" id="gcash-customer" placeholder="Optional" />
+          </label>
+        </div>
+        <div class="dash-2col">
+          <label>
+            Reference #
+            <input type="text" id="gcash-reference" placeholder="Optional" />
+          </label>
+          <label>
+            Note
+            <input type="text" id="gcash-note" placeholder="Optional" />
+          </label>
+        </div>
+        <div class="section-heading-row" style="margin-top:6px;">
+          <button type="submit" class="btn primary">💾 Save</button>
+          <button type="button" class="btn ghost hidden" id="gcash-cancel-edit">Cancel edit</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Toolbar + list -->
+    <div class="gcash-toolbar">
+      <input type="search" id="gcash-search" placeholder="Search customer, ref, note…" />
+      <select id="gcash-filter-type"><option value="">All Types</option></select>
+      <select id="gcash-filter-range">
+        <option value="">All Time</option>
+        <option value="today">Today</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+      </select>
+      <button type="button" class="btn ghost sm" id="gcash-export-excel">📊 Excel</button>
+      <button type="button" class="btn ghost sm" id="gcash-export-pdf">📄 PDF</button>
+    </div>
+    <div class="gcash-list" id="gcash-list"></div>
+  </main>
+
+  <!-- ========================================================
+       PAGE — PAY MAYA
+       ======================================================== -->
+  <main id="page-maya" class="page hidden">
+    <h2 class="page-title maya-page-title">
+      <img src="Maya.jpg" alt="" class="maya-title-logo" />
+      Pay Maya Tracker
+    </h2>
+
+    <!-- Summary -->
+    <div class="maya-summary">
+      <div class="maya-stat in">
+        <span class="maya-stat-label">Cash In — Today</span>
+        <strong id="maya-in-today">₱0.00</strong>
+        <small id="maya-in-count">0 transactions</small>
+      </div>
+      <div class="maya-stat out">
+        <span class="maya-stat-label">Cash Out — Today</span>
+        <strong id="maya-out-today">₱0.00</strong>
+        <small id="maya-out-count">0 transactions</small>
+      </div>
+      <div class="maya-stat fee">
+        <span class="maya-stat-label">Fees — Today</span>
+        <strong id="maya-fee-today">₱0.00</strong>
+        <small id="maya-fee-month">This month: ₱0.00</small>
+      </div>
+      <div class="maya-stat balance">
+        <span class="maya-stat-label">Balance</span>
+        <strong id="maya-balance">₱0.00</strong>
+        <button type="button" class="maya-set-opening" id="maya-set-opening">Set Opening</button>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <div class="card compact">
+      <h3 class="card-title" id="maya-form-title">Record Pay Maya Transaction</h3>
+      <form id="maya-form">
+        <input type="hidden" id="maya-id" />
+        <div class="dash-2col">
+          <label>
+            Type
+            <select id="maya-type"></select>
+          </label>
+          <label>
+            Amount (₱) *
+            <input type="number" id="maya-amount" min="0" step="0.01" required />
+          </label>
+        </div>
+        <div class="dash-2col">
+          <label>
+            Service Fee (₱)
+            <input type="number" id="maya-fee" min="0" step="0.01" value="0" />
+          </label>
+          <label>
+            Customer
+            <input type="text" id="maya-customer" placeholder="Optional" />
+          </label>
+        </div>
+        <div class="dash-2col">
+          <label>
+            Reference #
+            <input type="text" id="maya-reference" placeholder="Optional" />
+          </label>
+          <label>
+            Note
+            <input type="text" id="maya-note" placeholder="Optional" />
+          </label>
+        </div>
+        <div class="section-heading-row" style="margin-top:6px;">
+          <button type="submit" class="btn primary">💾 Save</button>
+          <button type="button" class="btn ghost hidden" id="maya-cancel-edit">Cancel edit</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Toolbar + list -->
+    <div class="maya-toolbar">
+      <input type="search" id="maya-search" placeholder="Search customer, ref, note…" />
+      <select id="maya-filter-type"><option value="">All Types</option></select>
+      <select id="maya-filter-range">
+        <option value="">All Time</option>
+        <option value="today">Today</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+      </select>
+      <button type="button" class="btn ghost sm" id="maya-export-excel">📊 Excel</button>
+      <button type="button" class="btn ghost sm" id="maya-export-pdf">📄 PDF</button>
+    </div>
+    <div class="maya-list" id="maya-list"></div>
+  </main>
+
+    <!-- ========================================================
+       PAGE — E-LOAD
+       ======================================================== -->
+  <main id="page-eload" class="page hidden">
+    <h2 class="page-title">📱 E-Load Tracker</h2>
+
+    <!-- Summary -->
+    <div class="eload-summary">
+      <div class="eload-stat sales">
+        <span class="eload-stat-label">Load Sales — Today</span>
+        <strong id="eload-sales-today">₱0.00</strong>
+        <small id="eload-sales-count">0 transactions</small>
+      </div>
+      <div class="eload-stat profit">
+        <span class="eload-stat-label">Profit — Today</span>
+        <strong id="eload-profit-today">₱0.00</strong>
+        <small id="eload-profit-month">This month: ₱0.00</small>
+      </div>
+      <div class="eload-stat wallet">
+        <span class="eload-stat-label">Load Wallet Balance</span>
+        <strong id="eload-wallet-balance">₱0.00</strong>
+        <div class="eload-wallet-actions">
+          <button type="button" class="eload-mini-btn" id="eload-wallet-topup">➕ Top Up</button>
+          <button type="button" class="eload-mini-btn" id="eload-wallet-set">⚙️ Set</button>
+        </div>
+      </div>
+      <div class="eload-stat avg">
+        <span class="eload-stat-label">Avg Margin</span>
+        <strong id="eload-avg-margin">0%</strong>
+        <small id="eload-avg-amount">Avg load: ₱0.00</small>
+      </div>
+    </div>
+
+    <!-- Sell + Side -->
+    <div class="eload-layout">
+
+      <!-- Quick Sell Panel -->
+      <section class="eload-sell-panel">
+        <header class="eload-panel-head">
+          <h3>⚡ Quick Sell</h3>
+          <span class="eload-panel-badge" id="eload-sell-hint">Select network & amount</span>
+        </header>
+
+        <!-- Network selector -->
+        <div class="eload-section-label">1 · Network</div>
+        <div class="eload-network-grid" id="eload-network-grid"></div>
+
+        <!-- Amount selector -->
+        <div class="eload-section-label">
+          2 · Amount
+          <button type="button" class="eload-custom-toggle" id="eload-custom-toggle">
+            Custom
+          </button>
+        </div>
+        <div class="eload-amount-grid" id="eload-amount-grid"></div>
+
+        <div class="eload-custom-row hidden" id="eload-custom-row">
+          <input type="number" id="eload-custom-amount" min="1" step="1" placeholder="Enter amount ₱" inputmode="numeric" />
+        </div>
+
+        <!-- Phone -->
+        <div class="eload-section-label">3 · Customer Number</div>
+        <input
+          type="tel"
+          id="eload-phone"
+          class="eload-phone-input"
+          placeholder="09XXXXXXXXX"
+          autocomplete="off"
+          inputmode="numeric"
+          maxlength="13"
+        />
+
+        <!-- Customer name (optional) -->
+        <input
+          type="text"
+          id="eload-customer"
+          class="eload-customer-input"
+          placeholder="Customer name (optional)"
+          autocomplete="off"
+        />
+
+        <!-- Live preview -->
+        <div class="eload-preview" id="eload-preview">
+          <div class="eload-preview-empty">Fill in the fields above to see the breakdown</div>
+        </div>
+
+        <!-- Sell button -->
+        <button type="button" class="btn primary block" id="eload-sell-btn" disabled>
+          💰 Sell Load
+        </button>
+      </section>
+
+      <!-- Side Panel: Settings -->
+      <aside class="eload-side">
+
+        <!-- Wallet card -->
+        <div class="card compact eload-side-card">
+          <h3 class="card-title">💼 Load Wallet</h3>
+          <p class="eload-side-hint">
+            The wallet tracks how much load credit you have with your supplier. Each sale deducts the cost from this balance.
+          </p>
+          <div class="eload-wallet-display">
+            <strong id="eload-wallet-display">₱0.00</strong>
+            <small id="eload-wallet-meta">No top-ups yet</small>
+          </div>
+          <div class="eload-wallet-btn-row">
+            <button type="button" class="btn ghost sm" id="eload-wallet-topup-2">➕ Top Up</button>
+            <button type="button" class="btn ghost sm" id="eload-wallet-reset">🔄 Reset</button>
+          </div>
+        </div>
+
+        <!-- Network service fee settings -->
+        <div class="card compact eload-side-card">
+          <h3 class="card-title">⚙️ Service Fees</h3>
+          <p class="eload-side-hint">
+            Set the % service fee you earn per network. Example: 4% means a ₱100 load earns you ₱4.
+          </p>
+          <div id="eload-network-settings" class="eload-net-settings"></div>
+          <button type="button" class="btn primary block" id="eload-save-network-settings">
+            💾 Save Service Fees
+          </button>
+        </div>
+
+      </aside>
+    </div>
+
+    <!-- Recent transactions -->
+    <div class="section-heading-row">
+      <h3 class="section-heading">📋 Recent E-Load Transactions</h3>
+      <div class="export-btns">
+        <button type="button" class="btn ghost sm" id="eload-export-excel">📊 Excel</button>
+        <button type="button" class="btn ghost sm" id="eload-export-pdf">📄 PDF</button>
+      </div>
+    </div>
+
+    <div class="eload-toolbar">
+      <input type="search" id="eload-search" placeholder="Search phone, customer, ref…" />
+      <select id="eload-filter-network"><option value="">All Networks</option></select>
+      <select id="eload-filter-range">
+        <option value="">All Time</option>
+        <option value="today">Today</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+      </select>
+    </div>
+
+    <div class="eload-list" id="eload-list"></div>
+  </main>
+
+  <!-- ========================================================
+       PAGE — EXPENSES
+       ======================================================== -->
+  <main id="page-expenses" class="page hidden">
+    <h2 class="page-title">💸 Expenses Tracker</h2>
+
+    <!-- Summary -->
+    <div class="expenses-summary">
+      <div class="expenses-stat today">
+        <span class="expenses-stat-label">Today</span>
+        <strong id="expenses-today">₱0.00</strong>
+        <small id="expenses-count">0 entries this month</small>
+      </div>
+      <div class="expenses-stat month">
+        <span class="expenses-stat-label">This Month</span>
+        <strong id="expenses-month">₱0.00</strong>
+        <small>Calendar month</small>
+      </div>
+      <div class="expenses-stat year">
+        <span class="expenses-stat-label">This Year</span>
+        <strong id="expenses-year">₱0.00</strong>
+        <small>Calendar year</small>
+      </div>
+      <div class="expenses-stat total">
+        <span class="expenses-stat-label">All-Time Total</span>
+        <strong id="expenses-total">₱0.00</strong>
+        <small>Since you started</small>
+      </div>
+    </div>
+
+    <div class="expenses-layout">
+      <section class="expenses-form-panel">
+        <h3 class="expenses-panel-title" id="expense-form-title">Add Expense</h3>
+        <form id="expense-form">
+          <input type="hidden" id="expense-id" />
+          <label>Amount (₱) * <input type="number" id="expense-amount" min="0" step="0.01" placeholder="0.00" required /></label>
+          <label>
+            Category *
+            <div class="input-with-btn">
+              <select id="expense-category" required></select>
+              <button type="button" class="btn ghost sm" id="expense-add-category-btn" title="Add custom category">＋</button>
+            </div>
+          </label>
+          <label>Date <input type="date" id="expense-date" /></label>
+          <label>Note <input type="text" id="expense-note" placeholder="Optional description" /></label>
+          <div class="expenses-form-actions">
+            <button type="submit" class="btn primary">💾 Save Expense</button>
+            <button type="button" class="btn ghost hidden" id="expense-cancel-edit">Cancel edit</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="expenses-side">
+        <div class="card compact expenses-side-card">
+          <h3 class="card-title">🎯 Monthly Budget</h3>
+          <div id="expenses-budget-display" class="expenses-budget-display"></div>
+          <button type="button" class="btn ghost sm block" id="expense-set-budget" style="margin-top:10px;">⚙️ Set Budget</button>
+        </div>
+                <div class="card compact expenses-side-card">
+          <h3 class="card-title">📊 This Month by Category</h3>
+          <div class="expenses-category-list" id="expenses-category-breakdown"></div>
+        </div>
+
+        <div class="card compact expenses-side-card">
+          <div class="expenses-cat-manage-head">
+            <h3 class="card-title" style="margin:0;">🏷️ Manage Categories</h3>
+            <button type="button" class="btn ghost sm" id="expense-add-category-btn-2" onclick="document.getElementById('expense-add-category-btn')?.click()">＋ Add</button>
+          </div>
+          <p class="expenses-side-hint">
+            Customize your expense categories. Built-in ones can't be deleted but you can add your own.
+          </p>
+          <div class="expense-cat-manage-list" id="expense-categories-list"></div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="section-heading-row">
+      <h3 class="section-heading">📋 Expense History</h3>
+      <div class="export-btns">
+        <button type="button" class="btn ghost sm" id="expenses-export-excel">📊 Excel</button>
+        <button type="button" class="btn ghost sm" id="expenses-export-pdf">📄 PDF</button>
+      </div>
+    </div>
+
+    <div class="expenses-toolbar">
+      <input type="search" id="expense-search" placeholder="Search note or category…" />
+      <select id="expense-filter-category"><option value="">All Categories</option></select>
+      <select id="expense-filter-range">
+        <option value="">All Time</option>
+        <option value="today">Today</option>
+        <option value="7">Last 7 days</option>
+        <option value="month">This Month</option>
+        <option value="30">Last 30 days</option>
+      </select>
+    </div>
+
+    <div class="expenses-list" id="expenses-list"></div>
+  </main>
+
+  <!-- ========================================================
+       PAGE — ADMIN (superadmin only)
+       ======================================================== -->
+  <main id="page-admin" class="page hidden">
+    <h2 class="page-title">🛡️ Admin — User Approvals</h2>
+
+    <h3 class="section-heading">Pending Approvals</h3>
+    <div id="pending-users-list"></div>
+
+    <h3 class="section-heading">All Users</h3>
+    <div id="all-users-list"></div>
+  </main>
+
+  <!-- ============ INSTALL BANNER ============ -->
+  <div id="install-banner" class="install-banner hidden">
+    <div class="install-banner-icon">📲</div>
+    <div class="install-banner-text">
+      <strong>Install Kurt POS</strong>
+      <small>Add to your home screen for offline access.</small>
+    </div>
+    <button type="button" class="btn primary" id="install-banner-btn">Install</button>
+    <button type="button" class="install-banner-close" id="install-banner-close" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODALS
+     ============================================================ -->
+
+<!-- Restock -->
+<div id="restock-modal" class="modal hidden">
+  <div class="modal-card restock-card">
+    <div class="modal-head">
+      <h3>➕ Restock Item</h3>
+      <button type="button" class="btn icon-btn" id="restock-close" aria-label="Close">✕</button>
+    </div>
+    <div class="restock-name" id="restock-item-name">—</div>
+    <div class="restock-current" id="restock-current">—</div>
+    <label>
+      Quantity to add
+      <input type="number" id="restock-qty" min="1" step="1" value="10" />
+    </label>
+    <button type="button" class="btn primary block" id="restock-confirm" style="margin-top:10px;">Confirm Restock</button>
+  </div>
+</div>
+
+<!-- Receipt -->
+<div id="receipt-modal" class="modal hidden">
+  <div class="modal-card receipt-modal-card">
+    <div class="modal-head">
+      <h3>🧾 Receipt</h3>
+      <button type="button" class="btn icon-btn" id="close-receipt-btn" aria-label="Close">✕</button>
+    </div>
+    <div class="receipt" id="receipt-content"></div>
+    <div class="receipt-actions">
+      <button type="button" class="btn primary" id="print-receipt-btn">🖨️ Print</button>
+      <button type="button" class="btn danger hidden" id="delete-receipt-btn">🗑️ Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Movement detail -->
+<div id="movement-modal" class="modal hidden">
+  <div class="modal-card movement-modal-card">
+    <div class="modal-head">
+      <h3>🔁 Movement Detail</h3>
+      <button type="button" class="btn icon-btn" id="movement-close" aria-label="Close">✕</button>
+    </div>
+    <div class="movement-detail" id="movement-detail-content"></div>
+    <div class="receipt-actions">
+      <button type="button" class="btn ghost" id="movement-print-btn">🖨️ Print</button>
+      <button type="button" class="btn danger" id="movement-delete-btn">🗑️ Delete</button>
+      <button type="button" class="btn ghost" id="movement-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment (record utang payment) -->
+<div id="payment-modal" class="modal hidden">
+  <div class="modal-card restock-card">
+    <div class="modal-head">
+      <h3>💵 Record Payment</h3>
+      <button type="button" class="btn icon-btn" data-close-modal="payment-modal" aria-label="Close">✕</button>
+    </div>
+    <div class="restock-name" id="payment-customer-name">—</div>
+    <div class="restock-current" id="payment-current-balance">—</div>
+    <label>
+      Amount (₱)
+      <input type="number" id="payment-amount" min="0" step="0.01" />
+    </label>
+    <label>
+      Note
+      <input type="text" id="payment-note" placeholder="Optional" />
+    </label>
+    <button type="button" class="btn primary block" id="payment-confirm" style="margin-top:10px;">Confirm Payment</button>
+  </div>
+</div>
+
+<!-- Customer detail -->
+<div id="customer-detail-modal" class="modal hidden">
+  <div class="modal-card customer-detail-card">
+    <div class="modal-head">
+      <h3 id="customer-detail-title">Customer</h3>
+      <button type="button" class="btn icon-btn" id="customer-detail-close" aria-label="Close">✕</button>
+    </div>
+    <div class="customer-detail-meta" id="customer-detail-meta"></div>
+    <div class="customer-txns" id="customer-detail-txns"></div>
+    <div class="receipt-actions" style="margin-top:10px;">
+      <button type="button" class="btn primary" id="customer-detail-pay">💵 Record Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     EXPENSE CATEGORY EDITOR
+     ============================================================ -->
+<div id="expense-cat-modal" class="modal hidden">
+  <div class="modal-card exp-cat-modal-card">
+    <div class="modal-head">
+      <h3 id="expense-cat-modal-title">New Expense Category</h3>
+      <button type="button" class="btn icon-btn" id="expense-cat-modal-close" aria-label="Close">✕</button>
+    </div>
+
+    <label>
+      Category Name *
+      <input type="text" id="expense-cat-name"
+             placeholder="e.g. Marketing" maxlength="30" />
+    </label>
+
+    <div class="exp-cat-picker-section">
+      <span class="exp-cat-picker-label">Icon</span>
+      <div class="exp-preset-grid" id="expense-cat-emoji-grid"></div>
+      <input type="hidden" id="expense-cat-emoji" value="🏷️" />
+    </div>
+
+    <div class="exp-cat-picker-section">
+      <span class="exp-cat-picker-label">Color</span>
+      <div class="exp-color-grid" id="expense-cat-color-grid"></div>
+      <input type="hidden" id="expense-cat-color" value="#3B82F6" />
+    </div>
+
+    <div class="exp-cat-modal-actions">
+      <button type="button" class="btn ghost" id="expense-cat-cancel">Cancel</button>
+      <button type="button" class="btn primary" id="expense-cat-save">💾 Save Category</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category image picker -->
+<div id="cat-image-modal" class="modal hidden">
+  <div class="modal-card cat-image-card">
+    <div class="modal-head">
+      <h3 id="cat-image-title">Category Image</h3>
+      <button type="button" class="btn icon-btn" id="cat-image-close" aria-label="Close">✕</button>
+    </div>
+    <input type="search" id="cat-image-query" class="cat-image-search" placeholder="Search images…" />
+    <div class="cat-image-status" id="cat-image-status"></div>
+    <div class="cat-pick-grid" id="cat-image-grid"></div>
+    <div class="cat-image-foot">
+      <span class="cat-image-source" id="cat-image-source"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Import Excel -->
+<div id="import-modal" class="modal hidden">
+  <div class="modal-card import-card">
+    <div class="modal-head">
+      <h3>📥 Import Inventory</h3>
+      <button type="button" class="btn icon-btn" id="import-close" aria-label="Close">✕</button>
+    </div>
+
+    <!-- Auto-sync panel -->
+    <div class="autosync-panel">
+      <div class="autosync-title">🔄 Auto-Sync from File</div>
+      <div class="autosync-hint">
+        Link an Excel file once, and Kurt will re-read it every 60 seconds and sync changes automatically. <strong>Chrome / Edge desktop only.</strong>
+        <br /><small>Only changed rows are written to Firestore.</small>
+      </div>
+      <div class="autosync-status" id="autosync-status">Checking…</div>
+      <div class="autosync-actions">
+        <button type="button" class="btn primary sm" id="autosync-link-btn">🔗 Link File</button>
+        <button type="button" class="btn ghost sm hidden" id="autosync-sync-btn">Sync Now</button>
+        <button type="button" class="btn danger sm hidden" id="autosync-unlink-btn">Unlink</button>
+      </div>
+    </div>
+
+    <div class="import-divider"><span>or manual import</span></div>
+
+    <p class="import-hint">
+      Excel columns supported: <code>Name</code>, <code>SKU</code>, <code>Barcode</code>, <code>Category</code>,
+      <code>Quantity</code>, <code>Cost</code>, <code>Price</code>, <code>Discount%</code>,
+      <code>Discount price</code>, <code>Expiry</code>, <code>Threshold</code>.
+    </p>
+
+    <div class="import-file-label">
+      <button type="button" class="btn ghost" id="import-pick-btn">📁 Choose File</button>
+      <span class="import-file-name" id="import-file-name">No file selected</span>
+      <input type="file" id="import-file-input" accept=".xlsx,.xls,.csv" hidden />
+    </div>
+
+    <div class="import-preview hidden" id="import-preview"></div>
+
+    <div class="import-actions">
+      <button type="button" class="btn ghost" id="import-download-template">📋 Template</button>
+      <button type="button" class="btn primary" id="import-confirm-btn" disabled>Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- Camera Capture Modal for Add Item -->
+<div id="camera-modal" class="modal hidden">
+  <div class="modal-card" style="max-width: 500px;">
+    <div class="modal-head">
+      <h3>📷 Take Photo</h3>
+      <button type="button" class="btn icon-btn" id="camera-close" aria-label="Close">✕</button>
+    </div>
+    <div style="position:relative; background:#000; border-radius:12px; overflow:hidden; aspect-ratio: 4/3;">
+      <video id="camera-video" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px;">
+      <button type="button" class="btn primary block" id="camera-capture">📸 Capture Photo</button>
+    </div>
+    <canvas id="camera-canvas" style="display:none;"></canvas>
+  </div>
+</div>
+
+<!-- Scanner -->
+<div id="scanner-modal" class="scanner-modal hidden">
+  <div class="scanner-sheet">
+    <div class="scanner-head">
+      <h3 id="scanner-title">Scan Barcode</h3>
+      <button type="button" class="scanner-close-btn" id="scanner-close" aria-label="Close">✕</button>
+    </div>
+
+    <div class="scanner-view" id="scanner-view">
+      <div class="scanner-reader" id="scanner-reader"></div>
+      <div class="scanner-frame">
+        <div class="scan-box">
+          <div class="scan-corner tl"></div>
+          <div class="scan-corner tr"></div>
+          <div class="scan-corner bl"></div>
+          <div class="scan-corner br"></div>
+          <div class="scan-laser"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scanner-status" id="scanner-status">Starting camera…</div>
+
+    <div class="scanner-manual">
+      <input type="text" id="scanner-manual-input" placeholder="Type barcode manually…" />
+      <button type="button" class="btn primary" id="scanner-manual-btn">Enter</button>
+    </div>
+
+    <div class="receipt-actions">
+      <button type="button" class="btn ghost sm" id="scanner-retry-btn">🔄 Retry Camera</button>
+      <button type="button" class="btn ghost sm" id="scanner-upload-btn">🖼️ Upload Image</button>
+      <input type="file" id="scanner-upload-input" accept="image/*" hidden />
+    </div>
+  </div>
+</div>
+
+<!-- Install modal (iOS instructions) -->
+<div id="install-modal" class="install-modal hidden">
+  <div class="install-sheet">
+    <button type="button" class="install-close" id="install-close" aria-label="Close">✕</button>
+    <div class="install-icon">📲</div>
+    <h3>Install Kurt POS</h3>
+    <p>Add this app to your home screen for a faster, offline-ready experience.</p>
+
+    <div id="install-native-wrap" class="hidden">
+      <button type="button" class="btn primary block" id="install-native-btn">Install Now</button>
+    </div>
+
+    <div class="install-instructions">
+
+      <!-- DESKTOP — Chrome / Edge / Brave -->
+      <div class="install-guide" data-platform="desktop">
+        <p><strong>On desktop (Chrome / Edge):</strong></p>
+        <ol>
+          <li>Look for the <span class="step-icon">⊕ Install</span> icon at the right side of the address bar.</li>
+          <li>Click it, then confirm <span class="step-icon">Install</span>.</li>
+          <li>Or open the browser menu <span class="step-icon">⋮</span> → <span class="step-icon">Install Kurt POS</span>.</li>
+        </ol>
+        <p class="install-guide-note">
+          💡 Don't see the install icon? Make sure you're on <strong>https://</strong> or <strong>localhost</strong>, and try refreshing once.
+        </p>
+      </div>
+
+      <!-- iOS Safari -->
+      <div class="install-guide" data-platform="ios">
+        <p><strong>On iPhone / iPad (Safari):</strong></p>
+        <ol>
+          <li>Tap the <span class="step-icon">Share</span> button at the bottom.</li>
+          <li>Scroll and tap <span class="step-icon">Add to Home Screen</span>.</li>
+          <li>Tap <span class="step-icon">Add</span>.</li>
+        </ol>
+      </div>
+
+      <!-- Android Chrome -->
+      <div class="install-guide" data-platform="android">
+        <p><strong>On Android (Chrome):</strong></p>
+        <ol>
+          <li>Tap the <span class="step-icon">⋮</span> menu.</li>
+          <li>Tap <span class="step-icon">Install app</span> or <span class="step-icon">Add to Home screen</span>.</li>
+        </ol>
+      </div>
+
+    </div>
+
+    <button type="button" class="btn ghost block" id="install-later">Maybe later</button>
+  </div>
+</div>
+
+<!-- GCash payment QR -->
+<div id="gcash-payment-modal" class="modal hidden">
+  <div class="modal-card gcash-payment-card">
+    <div class="modal-head">
+      <h3>📱 GCash Payment QR</h3>
+      <button type="button" class="btn icon-btn" id="gcash-payment-close" aria-label="Close">✕</button>
+    </div>
+
+    <div class="gcash-payment-body">
+      <div class="gcash-payment-amount">
+        <span class="gcash-pay-label">Amount to Pay</span>
+        <strong id="gcash-pay-amount">₱0.00</strong>
+      </div>
+
+      <div class="gcash-payment-ref">
+        <span>Reference</span>
+        <strong id="gcash-pay-ref">—</strong>
+      </div>
+
+      <div class="gcash-qr-wrap">
+        <canvas id="gcash-pay-qr-canvas" class="gcash-pay-canvas"></canvas>
+      </div>
+
+      <div class="gcash-payment-account">
+        <div class="gcash-payment-num">
+          <span>GCash Number</span>
+          <strong id="gcash-pay-number">—</strong>
+        </div>
+        <div class="gcash-payment-name">
+          <span>Account Name</span>
+          <strong id="gcash-pay-name">—</strong>
+        </div>
+      </div>
+
+      <div class="gcash-payment-hint" id="gcash-payment-hint">
+        Show this to the customer so they can send the exact amount.
+      </div>
+
+      <div class="gcash-payment-actions">
+        <button type="button" class="btn primary" id="gcash-pay-print">🖨️ Print</button>
+        <button type="button" class="btn ghost" id="gcash-pay-done">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TERMS & CONDITIONS MODAL
+     ============================================================ -->
+<div id="terms-modal" class="modal hidden">
+  <div class="modal-card terms-card">
+    <div class="modal-head">
+      <h3 id="terms-title">📄 Terms & Conditions</h3>
+      <button type="button" class="btn icon-btn hidden" id="terms-close" aria-label="Close">✕</button>
+    </div>
+
+    <div class="terms-meta">
+      <span>Version <strong id="terms-version">1.0.0</strong></span>
+      <span class="terms-meta-dot">·</span>
+      <span id="terms-updated">Updated —</span>
+    </div>
+
+    <div class="terms-scroll-wrap">
+      <div class="terms-content" id="terms-content"></div>
+      <div class="terms-fade" id="terms-fade" aria-hidden="true"></div>
+    </div>
+
+    <div class="terms-actions" id="terms-actions">
+      <button type="button" class="btn ghost" id="terms-decline">Decline</button>
+      <button type="button" class="btn primary" id="terms-accept" disabled>
+        I Agree
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODULE ENTRY ============ -->
+<script type="module" src="app.js"></script>
+
+</body>
+</html>
