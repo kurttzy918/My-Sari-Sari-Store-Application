@@ -1,4 +1,4 @@
-/* auth.js — Authentication + auth screen + pending screen */
+/* auth.js — Authentication + auth screen + pending screen + workspace */
 import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
   signOut, onAuthStateChanged,
@@ -6,7 +6,8 @@ import {
   setPersistence, browserLocalPersistence, browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  doc, getDoc, setDoc, updateDoc, serverTimestamp, onSnapshot
+  doc, getDoc, setDoc, updateDoc, serverTimestamp, onSnapshot,
+  collection, query, where, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { auth, db } from "./firebase.js";
 import { state, CONSTANTS } from "./state.js";
@@ -20,7 +21,6 @@ const { SUPER_ADMIN_EMAIL } = CONSTANTS;
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: "select_account",
-  // Force the full account chooser even if a session exists
   login_hint: "",
 });
 
@@ -32,14 +32,11 @@ const REMEMBER_KEY = "rememberMe";
 function getRememberMe() {
   const el = document.getElementById("remember-me");
   if (el) return !!el.checked;
-  // Fallback to stored preference; default = true (stay signed in)
   return localStorage.getItem(REMEMBER_KEY) !== "false";
 }
-
 function saveRememberMe(v) {
   try { localStorage.setItem(REMEMBER_KEY, String(!!v)); } catch {}
 }
-
 function restoreRememberMeUI() {
   const el = $("remember-me");
   if (!el) return;
@@ -102,26 +99,17 @@ export function stopAuthBgCarousel() {
 }
 
 export function startTextCarousel(containerSelector, itemSelector, intervalMs = 3000) {
-  // Support MULTIPLE carousels with the same class (topbar + sidebar)
   const containers = document.querySelectorAll(containerSelector);
   if (!containers.length) return;
 
   containers.forEach((container) => {
     const items = container.querySelectorAll(itemSelector);
     if (!items.length) return;
+    if (items.length === 1) { items[0].classList.add("active"); return; }
 
-    // Single-item: just show it, no timer needed
-    if (items.length === 1) {
-      items[0].classList.add("active");
-      return;
-    }
-
-    // Multi-item: rotate
     let idx = 0;
     items.forEach((el, i) => el.classList.toggle("active", i === 0));
-
     setInterval(() => {
-      // If the parent got removed (e.g., page switched), skip
       if (!items[idx] || !items[idx].isConnected) return;
       items[idx].classList.remove("active");
       idx = (idx + 1) % items.length;
@@ -131,7 +119,7 @@ export function startTextCarousel(containerSelector, itemSelector, intervalMs = 
 }
 
 /* =========================================================
-   AUTH MODE (login vs signup)
+   AUTH MODE
    ========================================================= */
 function setAuthMode(isSignup) {
   state.isSignupMode = isSignup;
@@ -144,7 +132,6 @@ function setAuthMode(isSignup) {
   if (authSubmit) authSubmit.textContent = isSignup ? "Create Account" : "Login";
   if (authError) authError.textContent = "";
 
-  // Swap the Google button label
   const gtxt = $("google-btn-text");
   if (gtxt) gtxt.textContent = isSignup ? "Sign up with Google" : "Continue with Google";
 
@@ -169,8 +156,6 @@ function friendlyAuthError(code) {
     "auth/invalid-credential": "Invalid email or password.",
     "auth/too-many-requests": "Too many attempts. Try again later.",
     "auth/network-request-failed": "Network error. Check your connection.",
-
-    // Google / popup related
     "auth/account-exists-with-different-credential":
       "This email is already registered with a password. Sign in with email instead.",
     "auth/popup-blocked":
@@ -179,18 +164,14 @@ function friendlyAuthError(code) {
     "auth/cancelled-popup-request": "Sign-in was cancelled.",
     "auth/operation-not-allowed":
       "Google sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in method → Google.",
-
-    // 👇 now includes the actual hostname so you know exactly what to add
     "auth/unauthorized-domain":
       `Domain "${host}" isn't authorized.\n\n` +
       `Add it in Firebase Console → Authentication → Settings → Authorized domains.\n\n` +
       `Enter EXACTLY this (no https://, no trailing slash): ${host}`,
-
     "auth/internal-error":
       "Sign-in service had a hiccup. Try again in a moment."
   };
 
-  // Special-case: file:// won't work at all
   if (code === "auth/unauthorized-domain" && proto === "file:") {
     return (
       "You're opening the app directly from a file (file://).\n\n" +
@@ -203,10 +184,90 @@ function friendlyAuthError(code) {
 }
 
 /* =========================================================
+   WORKSPACE BOOTSTRAP — create a fresh workspace for a new owner
+   ========================================================= */
+async function createWorkspaceForOwner(user) {
+  const wsRef = doc(collection(db, "workspaces"));
+  const wsId = wsRef.id;
+
+  const fallbackName = (user.displayName || (user.email || "").split("@")[0] || "Store") + "'s Store";
+
+  await setDoc(wsRef, {
+    id: wsId,
+    name: fallbackName,
+    ownerUid: user.uid,
+    ownerEmail: user.email,
+    plan: "free",
+    staffCount: 0,
+    createdAt: serverTimestamp(),
+    createdBy: user.uid
+  });
+
+  return wsId;
+}
+
+/* =========================================================
+   JOIN WORKSPACE VIA INVITE CODE
+   ========================================================= */
+export async function acceptWorkspaceInvite(code) {
+  const uid = state.currentUser?.uid;
+  if (!uid) throw new Error("Not signed in");
+
+  const clean = String(code || "").trim().toUpperCase();
+  if (!clean) throw new Error("Enter an invite code");
+
+  const snap = await getDocs(
+    query(
+      collection(db, "workspace_invites"),
+      where("code", "==", clean),
+      where("status", "==", "pending")
+    )
+  );
+
+  if (snap.empty) throw new Error("Invalid or expired invite code");
+
+  const inviteDoc = snap.docs[0];
+  const invite = inviteDoc.data();
+
+  // Optional email-match check
+  const myEmail = (state.currentUser?.email || "").toLowerCase();
+  if (invite.email && invite.email !== myEmail) {
+    throw new Error(`This invite was sent to ${invite.email}`);
+  }
+
+  // 1) Attach user to workspace
+  await updateDoc(doc(db, "users", uid), {
+    workspaceId: invite.workspaceId,
+    role: invite.role || "cashier",
+    approved: true,
+    invitedBy: invite.invitedBy || null,
+    invitedAt: serverTimestamp()
+  });
+
+  // 2) Mark invite accepted
+  await updateDoc(doc(db, "workspace_invites", inviteDoc.id), {
+    status: "accepted",
+    acceptedAt: serverTimestamp(),
+    acceptedBy: uid
+  });
+
+  // 3) Bump workspace staffCount
+  try {
+    const wsRef = doc(db, "workspaces", invite.workspaceId);
+    const wsSnap = await getDoc(wsRef);
+    if (wsSnap.exists()) {
+      const current = Number(wsSnap.data().staffCount) || 0;
+      await updateDoc(wsRef, { staffCount: current + 1 });
+    }
+  } catch (e) { console.warn("[invite] staffCount bump failed:", e); }
+
+  return invite;
+}
+
+/* =========================================================
    INIT AUTH UI
    ========================================================= */
 export function initAuthUI() {
-  // Restore remember-me checkbox state on load
   restoreRememberMeUI();
 
   const tabLogin = $("tab-login"), tabSignup = $("tab-signup");
@@ -230,10 +291,8 @@ export function initAuthUI() {
       return;
     }
 
-    // Persist remember-me choice + apply Firebase persistence BEFORE auth call
     const remember = getRememberMe();
     saveRememberMe(remember);
-
     if (authSubmit) authSubmit.disabled = true;
 
     try {
@@ -249,11 +308,24 @@ export function initAuthUI() {
       if (state.isSignupMode) {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         const isSuper = email === SUPER_ADMIN_EMAIL.toLowerCase();
+
+        let workspaceId;
+        let role;
+
+        if (isSuper) {
+          workspaceId = cred.user.uid;
+          role = "superadmin";
+        } else {
+          // New signup = new store owner → create their workspace
+          workspaceId = await createWorkspaceForOwner(cred.user);
+          role = "owner";
+        }
+
         try {
           await setDoc(doc(db, "users", cred.user.uid), {
             email,
-            workspaceId: cred.user.uid,
-            role: isSuper ? "superadmin" : "user",
+            workspaceId,
+            role,
             approved: isSuper,
             displayName: cred.user.displayName || null,
             photoURL: cred.user.photoURL || null,
@@ -298,41 +370,65 @@ export function initAuthUI() {
       }
 
       const result = await signInWithPopup(auth, googleProvider);
-
-      // Confirm the user picked the account they expect
       const signedInEmail = (result.user?.email || "").toLowerCase();
       console.log("[Auth] Signed in as:", signedInEmail);
 
-      // If Firebase already had a different cached account, force a hard reset
       const cachedEmail = (localStorage.getItem("lastGoogleEmail") || "").toLowerCase();
       if (cachedEmail && cachedEmail !== signedInEmail) {
         console.warn("[Auth] Account changed — clearing cached session data");
-        // Clear stale local data associated with the previous account
         try {
           localStorage.removeItem("kurtPaletteV1");
           localStorage.removeItem("eloadNetworks:" + result.user.uid);
           localStorage.removeItem("eloadWallet:" + result.user.uid);
+          localStorage.removeItem("storeDisplayName");
         } catch {}
       }
       localStorage.setItem("lastGoogleEmail", signedInEmail);
     } catch (err) {
       console.error("[Auth] Google error:", err);
-      // Silent exit for user-cancelled popups
       if (
         err.code === "auth/popup-closed-by-user" ||
         err.code === "auth/cancelled-popup-request"
-      ) {
-        return;
-      }
+      ) return;
       if (authError) authError.textContent = friendlyAuthError(err.code);
     } finally {
       googleBtn.disabled = false;
     }
   });
 
-  /* ---------- Logout buttons ---------- */
+  /* ---------- Logout ---------- */
   $("logout-btn")?.addEventListener("click", () => signOut(auth));
   $("pending-logout")?.addEventListener("click", () => signOut(auth));
+
+  /* ---------- Join workspace modal ---------- */
+  $("join-workspace-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errEl = $("join-workspace-error");
+    const btn = $("join-workspace-submit");
+    if (errEl) errEl.textContent = "";
+
+    const code = valOf($("join-workspace-code")).trim();
+    if (!code) {
+      if (errEl) errEl.textContent = "Enter the invite code.";
+      return;
+    }
+
+    if (btn) btn.disabled = true;
+    try {
+      const invite = await acceptWorkspaceInvite(code);
+      showToast(`Joined "${invite.workspaceName || "workspace"}" ✅`);
+      $("join-workspace-modal")?.classList.add("hidden");
+      document.body.style.overflow = "";
+    } catch (err) {
+      console.error("[Join workspace]", err);
+      if (errEl) errEl.textContent = err.message || "Could not join workspace";
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  });
+
+  /* ---------- Sign out from join modal ---------- */
+  $("join-workspace-logout")?.addEventListener("click", () => signOut(auth));
 }
 
 /* =========================================================
@@ -340,28 +436,32 @@ export function initAuthUI() {
    ========================================================= */
 export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardown }) {
   onAuthStateChanged(auth, async (user) => {
-    // Teardown previous session
     if (state.unsubscribeUserDoc) {
       try { state.unsubscribeUserDoc(); } catch {}
       state.unsubscribeUserDoc = null;
     }
+    if (state.unsubscribeWorkspace) {
+      try { state.unsubscribeWorkspace(); } catch {}
+      state.unsubscribeWorkspace = null;
+    }
     onTeardown?.();
 
-    const authScreen   = $("auth-screen");
+    const authScreen    = $("auth-screen");
     const pendingScreen = $("pending-screen");
-    const appShell     = $("app-shell");
+    const appShell      = $("app-shell");
 
     /* ---------- Signed out ---------- */
     if (!user) {
       state.currentUser = null;
       state.currentUserData = null;
+      state.currentWorkspace = null;
       authScreen?.classList.remove("hidden");
       pendingScreen?.classList.add("hidden");
       appShell?.classList.add("hidden");
+      $("join-workspace-modal")?.classList.add("hidden");
       $("auth-form")?.reset();
       const authError = $("auth-error");
       if (authError) authError.textContent = "";
-      // Re-restore remember-me checkbox after the form reset
       restoreRememberMeUI();
       startAuthBgCarousel("auth-bg-slides");
       onLoggedOut?.();
@@ -381,11 +481,22 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       const snap = await getDoc(userRef);
 
       if (!snap.exists()) {
-        // First login (email signup or Google) → create the profile doc
+        // First-time profile creation
+        let workspaceId;
+        let role;
+
+        if (isSuper) {
+          workspaceId = user.uid;
+          role = "superadmin";
+        } else {
+          workspaceId = await createWorkspaceForOwner(user);
+          role = "owner";
+        }
+
         await setDoc(userRef, {
           email: user.email,
-          workspaceId: user.uid,
-          role: isSuper ? "superadmin" : "user",
+          workspaceId,
+          role,
           approved: isSuper,
           displayName: user.displayName || null,
           photoURL: user.photoURL || null,
@@ -393,24 +504,20 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
           createdAt: serverTimestamp()
         });
       } else {
-        // Merge updated Google profile info into the existing doc
+        // Merge updated profile info (only safe fields)
         const data = snap.data();
         const patch = {};
 
         if (isSuper && (data.role !== "superadmin" || data.approved !== true)) {
           patch.role = "superadmin";
           patch.approved = true;
+          patch.workspaceId = data.workspaceId || user.uid;
         }
-        if (user.displayName && !data.displayName) {
-          patch.displayName = user.displayName;
-        }
-        if (user.photoURL && !data.photoURL) {
-          patch.photoURL = user.photoURL;
-        }
+        if (user.displayName && !data.displayName) patch.displayName = user.displayName;
+        if (user.photoURL && !data.photoURL) patch.photoURL = user.photoURL;
+
         const provider = user.providerData?.[0]?.providerId;
-        if (provider && !data.provider) {
-          patch.provider = provider;
-        }
+        if (provider && !data.provider) patch.provider = provider;
 
         if (Object.keys(patch).length) {
           await updateDoc(userRef, patch);
@@ -429,35 +536,71 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       return;
     }
 
-    /* ---------- Watch the user doc for approval changes ---------- */
+    /* ---------- Watch the user doc ---------- */
     state.unsubscribeUserDoc = onSnapshot(userRef, (docSnap) => {
       if (!docSnap.exists()) return;
       state.currentUserData = docSnap.data();
 
+      /* ---- Not approved ---- */
       if (!state.currentUserData.approved) {
         authScreen?.classList.add("hidden");
         appShell?.classList.add("hidden");
         pendingScreen?.classList.remove("hidden");
+        $("join-workspace-modal")?.classList.add("hidden");
         stopAuthBgCarousel();
         startAuthBgCarousel("pending-bg-slides");
         onPending?.();
         return;
       }
 
+      /* ---- Approved but no workspace → show join modal ---- */
+      const hasWorkspace =
+        !!state.currentUserData.workspaceId && !!state.currentUserData.role;
+
+      if (!hasWorkspace) {
+        authScreen?.classList.add("hidden");
+        appShell?.classList.add("hidden");
+        pendingScreen?.classList.add("hidden");
+        $("join-workspace-modal")?.classList.remove("hidden");
+        document.body.style.overflow = "hidden";
+        return;
+      }
+
+      /* ---- Fully approved → show the app ---- */
+      $("join-workspace-modal")?.classList.add("hidden");
       pendingScreen?.classList.add("hidden");
       authScreen?.classList.add("hidden");
       appShell?.classList.remove("hidden");
       stopAuthBgCarousel();
+      document.body.style.overflow = "";
 
-      const navAdmin = $("nav-admin");
       const isRealSuper = state.currentUserData.role === "superadmin";
+      const navAdmin = $("nav-admin");
       if (navAdmin) navAdmin.classList.toggle("hidden", !isRealSuper);
 
-      // Kick off the users listener the moment a real super admin lands
       if (isRealSuper) {
         import("./app.js").then(m => {
           m.startUserAdminListener?.();
+          m.startWorkspaceAdminListener?.();
         }).catch(() => {});
+      }
+
+      /* ---- Watch the workspace doc ---- */
+      if (state.unsubscribeWorkspace) {
+        try { state.unsubscribeWorkspace(); } catch {}
+        state.unsubscribeWorkspace = null;
+      }
+      const wsId = state.currentUserData.workspaceId;
+      if (wsId) {
+        state.unsubscribeWorkspace = onSnapshot(
+          doc(db, "workspaces", wsId),
+          (wsSnap) => {
+            state.currentWorkspace = wsSnap.exists()
+              ? { id: wsSnap.id, ...wsSnap.data() }
+              : null;
+          },
+          (err) => console.warn("[workspace listener]", err.code, err.message)
+        );
       }
 
       onApproved?.(state.currentUserData);

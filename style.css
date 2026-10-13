@@ -5595,3 +5595,35 @@ body,
   .exp-preset-grid { grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); }
   .exp-color-grid { grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); }
 }
+.role-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.role-badge.owner      { background: #E8B33A; color: #000; }
+.role-badge.admin      { background: #8B5CF6; color: #fff; }
+.role-badge.cashier    { background: #10B981; color: #fff; }
+.role-badge.superadmin { background: #EF4444; color: #fff; }
+
+.invite-code {
+  background: #0F172A;
+  color: #5FC2A6;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  font-family: monospace;
+}
+.invite-code-sm {
+  background: #F1F5F7;
+  color: #0F172A;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 700;
+  font-size: 11px;
+}

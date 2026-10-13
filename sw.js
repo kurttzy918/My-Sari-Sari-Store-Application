@@ -3,7 +3,7 @@
    Strategy: cache-first for shell, network-first for others
    ========================================================== */
 
-const CACHE_VERSION = "kurt-inventory-v49";
+const CACHE_VERSION = "kurt-inventory-v50";
 const SHELL_ASSETS = [
   "./",
   "./index.html",
@@ -19,6 +19,7 @@ const SHELL_ASSETS = [
   "./customers.js",
   "./labels.js",
   "./gcash.js",
+  "./staff.js",
   "./manifest.json",
   "./5.png",
   "./Kurt.png",

@@ -201,6 +201,7 @@
       </button>
       <button type="button" id="install-btn" class="btn ghost sm hidden">📲 Install</button>
       <span class="user-email" id="user-email">—</span>
+      <span id="user-role-badge" class="role-badge hidden">—</span>
       <button type="button" id="logout-btn" class="btn danger sm">Logout</button>
     </div>
   </header>
@@ -963,6 +964,33 @@
     <div class="utang-payment-history" id="utang-payment-history"></div>
   </main>
 
+  <button type="button" class="nav-btn hidden" id="nav-staff" data-page="page-staff">
+  <span class="nav-icon">👥</span><span>Staff</span>
+  </button>
+
+  <!-- ========================================================
+     PAGE — STAFF (owners/admins only)
+     ======================================================== -->
+<main id="page-staff" class="page hidden">
+  <h2 class="page-title">👥 Staff Management</h2>
+
+  <div id="staff-role-gate" class="empty-state hidden">
+    <p>🔒 Staff management is only available to owners and admins.</p>
+  </div>
+
+  <div id="staff-body">
+    <div class="section-heading-row">
+      <h3 class="section-heading" style="margin:0;">Team Members</h3>
+      <button type="button" class="btn primary" id="invite-staff-btn">➕ Invite Staff</button>
+    </div>
+
+    <div id="staff-list" class="customers-list"></div>
+
+    <h3 class="section-heading">📨 Pending Invites</h3>
+    <div id="invites-list" class="customers-list"></div>
+  </div>
+</main>
+
   <!-- ========================================================
        PAGE — LABELS
        ======================================================== -->
@@ -1434,6 +1462,8 @@
 
     <h3 class="section-heading">All Users</h3>
     <div id="all-users-list"></div>
+    <h3 class="section-heading">🏢 All Workspaces</h3>
+    <div id="all-workspaces-list"></div>
   </main>
 
   <!-- ============ INSTALL BANNER ============ -->
@@ -1811,6 +1841,77 @@
         I Agree
       </button>
     </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     JOIN WORKSPACE MODAL (shown to approved staff without a workspace)
+     ============================================================ -->
+<div id="join-workspace-modal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>🔗 Join a Workspace</h3>
+    </div>
+
+    <p class="hint" style="margin-bottom:12px;">
+      Your account has been approved, but you're not yet part of a store.
+      Enter the invite code your store owner gave you.
+    </p>
+
+    <form id="join-workspace-form">
+      <label>
+        Invite Code
+        <input type="text" id="join-workspace-code"
+               placeholder="e.g. AB12CD34"
+               autocomplete="off"
+               autocapitalize="characters"
+               style="text-transform:uppercase;letter-spacing:2px;" />
+      </label>
+
+      <div id="join-workspace-error" class="error-msg"></div>
+
+      <button type="submit" class="btn primary block" id="join-workspace-submit">
+        Join Workspace
+      </button>
+
+      <button type="button" class="btn ghost block" id="join-workspace-logout"
+              style="margin-top:8px;">
+        Sign out
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================
+     INVITE STAFF MODAL
+     ============================================================ -->
+<div id="invite-modal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>➕ Invite Staff</h3>
+      <button type="button" class="btn icon-btn" id="invite-close" aria-label="Close">✕</button>
+    </div>
+
+    <label>
+      Email
+      <input type="email" id="invite-email" placeholder="staff@example.com" autocomplete="off" />
+    </label>
+
+    <label>
+      Role
+      <select id="invite-role">
+        <option value="cashier">Cashier — POS, Utang, GCash/Maya/E-Load</option>
+        <option value="admin">Admin — full access except owner tools</option>
+      </select>
+    </label>
+
+    <div id="invite-error" class="error-msg"></div>
+
+    <button type="button" class="btn primary block" id="invite-send-btn">
+      Send Invite
+    </button>
+
+    <div id="invite-result" class="hidden" style="margin-top:10px;"></div>
   </div>
 </div>
 

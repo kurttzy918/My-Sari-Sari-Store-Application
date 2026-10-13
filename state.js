@@ -1,13 +1,19 @@
-/* state.js — shared app state + constants */
+/* state.js — shared app state + constants + role helpers */
 export const state = {
   inventory: [],
   sales: [],
   categories: [],
 
   // ── Admin / user management ──
-  // allUsers: null = "not loaded yet", [] = "loaded but empty"
   allUsers: null,
-  usersError: null,          // string when the Firestore query fails
+  allWorkspaces: null,
+  usersError: null,
+
+  // ── Workspace (multi-tenant) ──
+  currentWorkspace: null,
+  workspaceStaff: null,
+  workspaceInvites: null,
+  unsubscribeWorkspace: null,
 
   movements: [],
 
@@ -141,3 +147,63 @@ export const CONSTANTS = {
   SCAN_VIDEO: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
   SCANNER_STATE: { IDLE: "idle", STARTING: "starting", RUNNING: "running", STOPPING: "stopping" }
 };
+
+/* =========================================================
+   ROLE CONSTANTS
+   ========================================================= */
+export const ROLES = {
+  SUPERADMIN: "superadmin",
+  OWNER:      "owner",
+  ADMIN:      "admin",
+  CASHIER:    "cashier"
+};
+
+export const ROLE_LABELS = {
+  superadmin: "Super Admin",
+  owner:      "Owner",
+  admin:      "Admin",
+  cashier:    "Cashier"
+};
+
+/* =========================================================
+   ROLE HELPERS
+   ========================================================= */
+export function myRole() {
+  return state.currentUserData?.role || null;
+}
+
+export function myWorkspaceId() {
+  return state.currentUserData?.workspaceId || null;
+}
+
+export function isSuperAdmin() {
+  return myRole() === ROLES.SUPERADMIN;
+}
+
+export function isOwner() {
+  return myRole() === ROLES.OWNER;
+}
+
+export function isAdmin() {
+  return myRole() === ROLES.ADMIN;
+}
+
+export function isCashier() {
+  return myRole() === ROLES.CASHIER;
+}
+
+/** Owner OR Admin OR Super Admin — full data management */
+export function isManager() {
+  const r = myRole();
+  return r === ROLES.OWNER || r === ROLES.ADMIN || r === ROLES.SUPERADMIN;
+}
+
+/* Feature permission helpers */
+export function canViewReports()      { return isManager(); }
+export function canManageData()       { return isManager(); }
+export function canManageStaff()      { return isManager(); }
+export function canSell()             { return isManager() || isCashier(); }
+export function canManageInventory()  { return isManager(); }
+export function canManageExpenses()   { return isManager(); }
+export function canDeleteSales()      { return isManager(); }
+export function canManageWorkspace()  { return isManager(); }

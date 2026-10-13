@@ -1,6 +1,6 @@
 /* utils.js — Helpers, formatters, sound, downloads, business helpers */
 import { serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { state, CONSTANTS } from "./state.js";
+import { state, CONSTANTS, isManager, isCashier } from "./state.js";
 
 /* -------- DOM -------- */
 export const $ = (id) => document.getElementById(id);
@@ -35,12 +35,12 @@ export const fmtShort = (n) => {
   if (abs >= 1_000)     return "₱" + (v / 1_000).toFixed(2) + "K";
   return fmtMoney(v);
 };
-/* -------- Money rounding (IEEE-754 safety) -------- */
 export const roundMoney = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.round((n + Number.EPSILON) * 100) / 100;
 };
+
 /* -------- Toast -------- */
 const toastEl = () => document.getElementById("toast");
 export function showToast(msg) {
@@ -91,8 +91,14 @@ export function applyTheme(theme) {
   if (themeIcon) themeIcon.textContent = theme === "dark" ? "☀️" : "🌙";
 }
 
-/* -------- Workspace -------- */
-export const myWorkspace = () => state.currentUser?.uid || null;
+/* -------- Workspace (multi-tenant) --------
+   All tenant data is scoped to the user's workspaceId, which now
+   points at a workspaces/{wsId} document shared by owner + staff.
+   Falls back to the user's uid only during first-time onboarding. */
+export const myWorkspace = () =>
+  state.currentUserData?.workspaceId ||
+  state.currentUser?.uid ||
+  null;
 
 /* -------- Movement doc factory -------- */
 export function movementDoc({ itemId, itemName, type, quantity, reason, note }) {
@@ -111,7 +117,7 @@ export function customerTxDoc({ customerId, customerName, type, amount, receiptN
   return {
     workspaceId: myWorkspace(),
     customerId, customerName,
-    type,                             // "purchase" | "payment"
+    type,
     amount: Number(amount) || 0,
     receiptNum: receiptNum || "",
     saleIds: saleIds || [],
@@ -276,53 +282,47 @@ export function monthLabel(key) {
 export const getCSSVar = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-/* -------- Barcode / SKU lookup --------
-   Pure lookup against the live inventory cache.
-   Barcodes are always handled as strings to preserve
-   leading zeros and special characters. */
+/* -------- Barcode / SKU lookup -------- */
 export function findItemByCode(code) {
   if (!code) return null;
   const norm = String(code).trim().replace(/\s+/g, "");
   if (!norm) return null;
   const lower = norm.toLowerCase();
 
-  // 1) Exact barcode match
   let item = state.inventory.find(i => i.barcode && String(i.barcode).trim() === norm);
   if (item) return item;
   item = state.inventory.find(i => i.barcode && String(i.barcode).trim().toLowerCase() === lower);
   if (item) return item;
 
-  // 2) Exact SKU match
   item = state.inventory.find(i => i.sku && String(i.sku).trim() === norm);
   if (item) return item;
   item = state.inventory.find(i => i.sku && String(i.sku).trim().toLowerCase() === lower);
   if (item) return item;
 
-  // 3) Loose partial match (last resort)
   return state.inventory.find(i =>
     (i.barcode && String(i.barcode).trim().toLowerCase().includes(lower)) ||
     (i.sku && String(i.sku).trim().toLowerCase().includes(lower))
   ) || null;
 }
+
 /* =========================================================
-   STORE DISPLAY NAME — pulls from the logged-in account
-   Priority: manual override → Google display name
-            → first name from email → fallback
+   STORE DISPLAY NAME — uses workspace name
+   Priority: manual override → workspace name
+            → Google display name → first name from email → fallback
    ========================================================= */
 export function getStoreDisplayName() {
-  // 1) Manual override (set via the receipt click or console)
   try {
     const override = localStorage.getItem("storeDisplayName");
     if (override && override.trim()) return override.trim();
   } catch {}
 
-  // 2) Google display name (state.currentUser or user data doc)
+  if (state.currentWorkspace?.name) return state.currentWorkspace.name;
+
   const user = state.currentUser;
   const data = state.currentUserData || {};
   const dn = user?.displayName || data.displayName;
   if (dn && String(dn).trim()) return String(dn).trim();
 
-  // 3) First name from email
   const email = user?.email || data.email || "";
   if (email) {
     const local = email.split("@")[0] || "";
@@ -330,11 +330,9 @@ export function getStoreDisplayName() {
     if (clean) return clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
   }
 
-  // 4) Fallback
   return "My Sari-Sari Store";
 }
 
-/* ---------- Optional: let users rename their store ---------- */
 export function setStoreDisplayName(name) {
   try {
     const clean = String(name || "").trim();
@@ -344,7 +342,6 @@ export function setStoreDisplayName(name) {
   } catch { return false; }
 }
 
-/* ---------- Interactive: prompt-based rename ---------- */
 export function promptStoreRename() {
   const current = getStoreDisplayName();
   const next = prompt("Enter your store name (shown on receipts):", current);
@@ -358,12 +355,10 @@ export function promptStoreRename() {
     showToast(`Store name set to "${clean}" ✅`);
   }
 }
-/* =========================================================
-   EXPENSE HELPERS — for net profit calculation
-   ========================================================= */
 
-/* Sum expenses, optionally filtered by a time window.
-   opts.since → ms (inclusive), opts.until → ms (exclusive) */
+/* =========================================================
+   EXPENSE HELPERS
+   ========================================================= */
 export function getTotalExpenses(opts = {}) {
   const { since, until } = opts;
   let total = 0;
@@ -380,27 +375,37 @@ export function getTotalExpenses(opts = {}) {
   });
   return roundMoney(total);
 }
-
-/* Gross profit = sum of sales.profit (before expenses) */
 export function getGrossProfit() {
   return roundMoney(
     (state.sales || []).reduce((s, x) => s + (Number(x.profit) || 0), 0)
   );
 }
-
-/* Net profit = gross profit − all-time expenses */
 export function getNetProfit() {
   return roundMoney(getGrossProfit() - getTotalExpenses());
 }
-
-/* Expenses for the current calendar month */
 export function getMonthExpenses() {
   const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0);
   return getTotalExpenses({ since: d.getTime() });
 }
-
-/* Same window helper for today */
 export function getTodayExpenses() {
   const d = new Date(); d.setHours(0, 0, 0, 0);
   return getTotalExpenses({ since: d.getTime(), until: d.getTime() + 86400000 });
+}
+
+/* =========================================================
+   ROLE GUARD — throws if user lacks permission
+   ========================================================= */
+export function requireManager() {
+  if (!isManager()) {
+    showToast("Access denied ❌ — managers only");
+    return false;
+  }
+  return true;
+}
+export function requireSell() {
+  if (!isManager() && !isCashier()) {
+    showToast("Access denied ❌");
+    return false;
+  }
+  return true;
 }

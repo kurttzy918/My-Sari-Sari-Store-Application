@@ -1,5 +1,5 @@
 /* app.js — Main entry: wires everything together */
-import { state, CONSTANTS } from "./state.js";
+import { state, CONSTANTS, isManager, isCashier, isSuperAdmin as _isSuperAdminRole } from "./state.js";
 import { $, safeRender, showToast, applyTheme } from "./utils.js";
 import { initAuthUI, initAuthHandlers, buildAuthBackground, startAuthBgCarousel, stopAuthBgCarousel, startTextCarousel } from "./auth.js";
 import {
@@ -38,6 +38,9 @@ import {
   wireTerms, showTermsGate, hasSessionAccepted, markSessionAccepted,
   recordTermsAcceptance
 } from "./terms.js";
+import {
+  initStaff, startStaffListeners, renderStaffPage
+} from "./staff.js";
 
 /* User count — Firestore aggregate query + handle */
 import {
@@ -131,6 +134,7 @@ export function startGreetingTicker() {
   if (greetingTimer) clearInterval(greetingTimer);
   updateTopbarGreeting();
   updateTopbarAvatar();
+  updateTopbarRoleBadge();
   greetingTimer = setInterval(() => {
     updateTopbarGreeting();
     updateTopbarAvatar();
@@ -142,7 +146,7 @@ export function stopGreetingTicker() {
 }
 
 /* =========================================================
-   PROFILE AVATAR — loads the Google account photo
+   PROFILE AVATAR
    ========================================================= */
 let _lastAvatarKey = null;
 
@@ -193,6 +197,62 @@ export function updateTopbarAvatar() {
 }
 
 /* =========================================================
+   TOPBAR ROLE BADGE
+   ========================================================= */
+export function updateTopbarRoleBadge() {
+  const badge = document.getElementById("user-role-badge");
+  if (!badge) return;
+  const role = state.currentUserData?.role || "";
+  if (!role) { badge.classList.add("hidden"); return; }
+  badge.classList.remove("hidden");
+  badge.textContent = role.toUpperCase();
+  badge.className = `role-badge ${role}`;
+}
+
+/* =========================================================
+   ROLE-BASED VISIBILITY
+   ========================================================= */
+export function applyRoleVisibility() {
+  const role = state.currentUserData?.role || "user";
+
+  const setVisible = (selector, visible) => {
+    document.querySelectorAll(selector).forEach(el => {
+      el.classList.toggle("hidden", !visible);
+    });
+  };
+
+  const roleIsCashier   = role === "cashier";
+  const roleIsManager   = role === "owner" || role === "admin" || role === "superadmin";
+  const roleIsSuper     = role === "superadmin";
+  const roleIsOwner     = role === "owner";
+  const roleIsOwnerOrAdmin = role === "owner" || role === "admin";
+
+  /* Cashier: only sees Dashboard, POS, Utang, GCash, Maya, E-Load */
+  setVisible('[data-page="page-history"]',    !roleIsCashier);
+  setVisible('[data-page="page-add"]',        !roleIsCashier);
+  setVisible('[data-page="page-categories"]', !roleIsCashier);
+  setVisible('[data-page="page-labels"]',     !roleIsCashier);
+  setVisible('[data-page="page-expenses"]',   !roleIsCashier);
+
+  /* Admin page only for super admin */
+  setVisible('#nav-admin', roleIsSuper);
+
+  /* Staff page only for owners/admins */
+  setVisible('#nav-staff', roleIsOwnerOrAdmin);
+
+  /* Terms page hidden for cashiers (they auto-accept as part of joining) */
+  setVisible('#nav-terms', !roleIsCashier);
+
+  /* Hide the "Download App" / "Share App" nav on cashiers? No — keep them */
+
+  /* If the currently-visible page is now hidden, jump to Dashboard */
+  const activeNav = document.querySelector(".nav-btn.active");
+  if (activeNav && activeNav.classList.contains("hidden")) {
+    document.querySelector('.nav-btn[data-page="page-dashboard"]')?.click();
+  }
+}
+
+/* =========================================================
    PWA INSTALL
    ========================================================= */
 let deferredInstallPrompt = null;
@@ -201,7 +261,6 @@ function detectInstallPlatform() {
   const ua = navigator.userAgent || "";
   const isIPad = /iPad/.test(ua) ||
     (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-
   if (/iPhone|iPod/.test(ua) || isIPad) return "ios";
   if (/Android/i.test(ua)) return "android";
   return "desktop";
@@ -227,7 +286,6 @@ function isSecureContextOk() {
 
 async function diagnoseInstallability() {
   const reasons = [];
-
   if (isRunningStandalone()) reasons.push("Already running as installed app");
   if (!isSecureContextOk())
     reasons.push(`Not a secure origin (current: ${location.protocol}//${location.hostname}) — must be HTTPS or localhost`);
@@ -336,12 +394,9 @@ function applyPlatformInstructions() {
 function openInstallInstructions() {
   const modal = $("install-modal");
   if (!modal) return false;
-
   const nativeWrap = $("install-native-wrap");
   if (nativeWrap) nativeWrap.classList.toggle("hidden", !deferredInstallPrompt);
-
   applyPlatformInstructions();
-
   modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
   return true;
@@ -364,15 +419,12 @@ async function runInstallFlow() {
     }
     return;
   }
-
   if (isRunningStandalone()) {
     showToast("Kurt POS is already installed ✓");
     setDownloadButtonInstalled();
     return;
   }
-
   if (openInstallInstructions()) return;
-
   showToast('Open browser menu → "Install app" or "Add to Home Screen" 📲');
 }
 
@@ -497,7 +549,6 @@ function syncSoundToggleUI() {
 
 (function initSound() {
   syncSoundToggleUI();
-
   $("sound-toggle")?.addEventListener("click", () => {
     state.soundEnabled = !state.soundEnabled;
     try { localStorage.setItem("soundEnabled", state.soundEnabled); } catch {}
@@ -513,6 +564,7 @@ function wireNav() {
   const pages = document.querySelectorAll(".page");
   navButtons.forEach(btn => {
     btn.addEventListener("click", () => {
+      if (btn.classList.contains("hidden")) return;
       forceCloseScanner();
       navButtons.forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
@@ -573,6 +625,9 @@ function wireNav() {
       if (btn.dataset.page === "page-expenses") {
         safeRender(renderExpensesPage);
       }
+      if (btn.dataset.page === "page-staff") {
+        safeRender(renderStaffPage);
+      }
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
   });
@@ -597,7 +652,6 @@ function wireMobileNav() {
     toggle.setAttribute("aria-expanded", "true");
     document.body.style.overflow = "hidden";
   };
-
   const closeDrawer = () => {
     nav.classList.remove("open");
     toggle.classList.remove("open");
@@ -611,7 +665,6 @@ function wireMobileNav() {
   toggle.addEventListener("click", () => {
     isOpen() ? closeDrawer() : openDrawer();
   });
-
   backdrop?.addEventListener("click", closeDrawer);
 
   nav.querySelectorAll(".nav-btn").forEach(btn => {
@@ -709,6 +762,7 @@ function startAllListeners() {
   startMayaListeners(onAfter);
   startEloadListeners(onAfter);
   startExpensesListeners(onAfter);
+  startStaffListeners();
 }
 
 function stopAllListeners() {
@@ -749,6 +803,34 @@ export function startUserAdminListener() {
   });
 }
 
+/* ---------- Super Admin workspaces listener ---------- */
+export function startWorkspaceAdminListener() {
+  if (state.unsubscribers.workspaces) return;
+
+  import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js").then(async ({ collection, onSnapshot, query }) => {
+    const { db } = await import("./firebase.js");
+
+    state.unsubscribers.workspaces = onSnapshot(
+      query(collection(db, "workspaces")),
+      (snap) => {
+        state.allWorkspaces = snap.docs
+          .map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }))
+          .sort((a, b) => {
+            const ta = a.createdAt?.toMillis?.() ?? 0;
+            const tb = b.createdAt?.toMillis?.() ?? 0;
+            return tb - ta;
+          });
+        safeRender(renderAdminWorkspaces);
+      },
+      (err) => {
+        console.error("[Admin workspaces listener]", err.code, err.message);
+        state.allWorkspaces = [];
+        safeRender(renderAdminWorkspaces);
+      }
+    );
+  });
+}
+
 function renderAdminUsers() {
   const pendingList = $("pending-users-list");
   const allList = $("all-users-list");
@@ -761,12 +843,8 @@ function renderAdminUsers() {
         <p class="admin-error-code">${String(state.usersError).replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))}</p>
         <p class="admin-error-hint">
           Firestore rules are blocking the read. In Firebase Console →
-          Firestore → Rules, add:
+          Firestore → Rules, check the /users/{uid} match block.
         </p>
-        <pre class="admin-error-pre">match /users/{uid} {
-  allow list: if request.auth != null
-              &amp;&amp; get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
-}</pre>
       </div>`;
     pendingList.innerHTML = errHtml;
     allList.innerHTML = "";
@@ -790,14 +868,58 @@ function renderAdminUsers() {
     : `<div class="empty-state"><p>No users yet.</p></div>`;
 }
 
+function renderAdminWorkspaces() {
+  const list = $("all-workspaces-list");
+  if (!list) return;
+
+  if (!state.allWorkspaces) {
+    list.innerHTML = `<div class="empty-state"><p>⏳ Loading workspaces…</p></div>`;
+    return;
+  }
+
+  if (!state.allWorkspaces.length) {
+    list.innerHTML = `<div class="empty-state"><p>No workspaces yet.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = state.allWorkspaces.map(w => `
+    <div class="user-row">
+      <div class="user-info">
+        <div class="user-mail">
+          ${escHtml(w.name || "(unnamed)")}
+          <span class="role-badge ${w.plan === "pro" ? "owner" : "admin"}">${escHtml((w.plan || "free").toUpperCase())}</span>
+        </div>
+        <div class="user-meta">
+          Owner: <code>${escHtml(w.ownerEmail || "")}</code> ·
+          Staff: ${Number(w.staffCount) || 0} ·
+          <code>${escHtml((w.id || "").slice(0, 10))}…</code>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function escHtml(s) {
+  return String(s ?? "").replace(/[<>&"']/g, c => (
+    { "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+
 function userRowHTML(u) {
   const isSuper = u.role === "superadmin";
-  const email = u.email ? String(u.email).replace(/[<>&"']/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&#39;"}[c])) : "";
+  const email = escHtml(u.email || "");
+  const roleLabel = u.role ? u.role.toUpperCase() : "";
   return `
     <div class="user-row ${u.approved ? "approved" : "pending"}">
       <div class="user-info">
-        <div class="user-mail">${email}${isSuper ? ` <span class="role-badge super">SUPER ADMIN</span>` : ""}</div>
-        <div class="user-meta">Workspace: <code>${(u.workspaceId || "").slice(0, 8)}…</code> · ${u.approved ? "Approved" : "Pending"}</div>
+        <div class="user-mail">
+          ${email}
+          ${u.role ? `<span class="role-badge ${u.role}">${escHtml(roleLabel)}</span>` : ""}
+        </div>
+        <div class="user-meta">
+          Workspace: <code>${(u.workspaceId || "").slice(0, 8)}…</code> ·
+          ${u.approved ? "Approved" : "Pending"}
+        </div>
       </div>
       <div class="user-actions">
         ${u.approved
@@ -872,8 +994,6 @@ function registerSW() {
 /* =========================================================
    AUTH CALLBACKS
    ========================================================= */
-
-/* ---------- Logged out ---------- */
 function onLoggedOut() {
   stopAllListeners();
   stopAuthBgCarousel();
@@ -881,30 +1001,29 @@ function onLoggedOut() {
   forceCloseScanner();
   stopGreetingTicker();
   stopAutoSyncTicker();
-  stopThemeRotationTicker();     // ← FIXED: was "stopthemeRotationTicker"
+  stopThemeRotationTicker();
   stopUserCountTicker();
 
-  // Clear greeting + avatar so the next user sees a fresh state
   updateTopbarAvatar();
   updateTopbarGreeting();
 
-  // Reset the post-approval flag so the next login runs full init
   state._postApprovalRan = false;
+  state.currentWorkspace = null;
+  state.workspaceStaff = null;
+  state.workspaceInvites = null;
 }
 
-/* ---------- Pending approval ---------- */
 function onPending() {
   stopAllListeners();
   stopAuthBgCarousel();
   startAuthBgCarousel("pending-bg-slides");
   stopGreetingTicker();
   stopAutoSyncTicker();
-  stopThemeRotationTicker();     // ← Also fixed here
+  stopThemeRotationTicker();
   stopUserCountTicker();
   state._postApprovalRan = false;
 }
 
-/* ---------- Post-approval renders ---------- */
 function runPostApprovalRenders() {
   setTimeout(() => {
     safeRender(renderInventory);
@@ -932,18 +1051,22 @@ function runPostApprovalRenders() {
     safeRender(renderSalesCategorySummary);
     safeRender(renderCharts);
     safeRender(renderInventoryAnalytics);
+    safeRender(renderStaffPage);
   }, 200);
 }
 
-/* ---------- Approved ---------- */
 function onApproved(userData) {
-  // Guard: skip redundant re-init when the snapshot fires again after
-  // terms acceptance or any other user-doc update.
   const shellVisible = !document.getElementById("app-shell")?.classList.contains("hidden");
   const alreadyRan   = !!state._postApprovalRan;
   if (shellVisible && alreadyRan) {
-    return;                       // ← FIXED: removed hasAcceptedTerms() reference
+    // Role may have changed — refresh visibility
+    applyRoleVisibility();
+    updateTopbarRoleBadge();
+    return;
   }
+
+  applyRoleVisibility();
+  updateTopbarRoleBadge();
 
   startAllListeners();
   startGreetingTicker();
@@ -959,16 +1082,13 @@ function onApproved(userData) {
 
   if (isSuper && !state.unsubscribers.users) {
     startUserAdminListener();
+    startWorkspaceAdminListener();
   }
 
-  /* =========================================================
-     TERMS & CONDITIONS GATE
-     • Super admin  → skip the gate; can open Terms via sidebar
-     • Regular user → gate on every fresh tab session
-     ========================================================= */
+  /* ---------- TERMS GATE ---------- */
   const uid = state.currentUser?.uid;
 
-  // 1) Super admin — no forced gate
+  // Super admin and existing owners skip the session gate
   if (isSuper) {
     document.getElementById("nav-terms")?.classList.remove("hidden");
     state._postApprovalRan = true;
@@ -976,26 +1096,27 @@ function onApproved(userData) {
     return;
   }
 
-  // 2) Regular user — gate on every fresh tab session
-  document.getElementById("nav-terms")?.classList.add("hidden");
+  // Cashiers skip the terms gate (accepted implicitly when joining)
+  if (userData.role === "cashier") {
+    document.getElementById("nav-terms")?.classList.add("hidden");
+    state._postApprovalRan = true;
+    runPostApprovalRenders();
+    return;
+  }
+
+  // Owners/admins: gate once per session
+  document.getElementById("nav-terms")?.classList.remove("hidden");
 
   if (!hasSessionAccepted(uid)) {
     showTermsGate({
       onAccept: async () => {
-        // Set flags FIRST so any snapshot re-fire skips re-init
         markSessionAccepted(uid);
         state._postApprovalRan = true;
-
-        // Firestore audit trail (may fail silently if offline / rules block)
         try { await recordTermsAcceptance(); } catch (e) {
           console.warn("[terms] record failed:", e);
         }
-
-        // Reveal app + render everything
         document.getElementById("app-shell")?.classList.remove("hidden");
         runPostApprovalRenders();
-
-        // Send the user straight to Dashboard
         requestAnimationFrame(() => {
           document.querySelector('.nav-btn[data-page="page-dashboard"]')?.click();
         });
@@ -1009,13 +1130,12 @@ function onApproved(userData) {
     return;
   }
 
-  // 3) Already accepted this session → normal flow
   state._postApprovalRan = true;
   runPostApprovalRenders();
 }
 
 /* =========================================================
-   MODAL CLOSE HANDLING (event delegation)
+   MODAL CLOSE HANDLING
    ========================================================= */
 function wireAllModals() {
   const MODAL_MAP = {
@@ -1027,6 +1147,7 @@ function wireAllModals() {
     "customer-detail-modal":  { cleanup: () => { state.currentCustomerId = null; } },
     "gcash-payment-modal":    { cleanup: () => { /* nothing */ } },
     "install-modal":          { cleanup: null },
+    "invite-modal":           { cleanup: () => {} },
     "scanner-modal":          { cleanup: () => {
         import("./inventory.js").then(m => m.forceCloseScanner?.()).catch(() => {});
       }
@@ -1042,6 +1163,7 @@ function wireAllModals() {
     "customer-detail-close": "customer-detail-modal",
     "install-close":         "install-modal",
     "install-later":         "install-modal",
+    "invite-close":          "invite-modal",
     "scanner-close":         "scanner-modal"
   };
 
@@ -1061,7 +1183,7 @@ function wireAllModals() {
     const closeBtn = e.target.closest(
       "#restock-close, #close-receipt-btn, #movement-close, #movement-close-btn, " +
       "#cat-image-close, #customer-detail-close, #install-close, #install-later, #scanner-close, " +
-      "#install-banner-close, [data-close-modal]"
+      "#invite-close, #install-banner-close, [data-close-modal]"
     );
     if (closeBtn) {
       e.preventDefault();
@@ -1103,6 +1225,7 @@ function wireAllModals() {
       "movement-modal",
       "receipt-modal",
       "restock-modal",
+      "invite-modal",
       "scanner-modal"
     ];
     for (const mid of order) {
@@ -1116,7 +1239,7 @@ function wireAllModals() {
 }
 
 /* =========================================================
-   SAFETY — reset any stuck state on load
+   SAFETY — reset stuck state on load
    ========================================================= */
 window.addEventListener("load", () => {
   document.querySelector(".bottom-nav")?.classList.remove("open");
@@ -1128,7 +1251,7 @@ window.addEventListener("load", () => {
 });
 
 /* =========================================================
-   USER COUNT — visible to SUPER ADMINS only
+   USER COUNT
    ========================================================= */
 let _userCountTimer = null;
 
@@ -1171,8 +1294,9 @@ function stopUserCountTicker() {
   if (_userCountTimer) { clearInterval(_userCountTimer); _userCountTimer = null; }
   document.getElementById("user-count-badge")?.classList.add("hidden");
 }
+
 /* =========================================================
-   SHARE APP LINK — Web Share API + clipboard fallback
+   SHARE APP LINK
    ========================================================= */
 async function shareAppLink() {
   const url = window.location.origin + window.location.pathname;
@@ -1182,40 +1306,24 @@ async function shareAppLink() {
     url
   };
 
-  // 1) Native share sheet (mobile / Edge / Safari)
   if (navigator.share) {
-    try {
-      await navigator.share(shareData);
-      // User completed the share — no toast needed, the OS shows its own UI
-      return;
-    } catch (err) {
-      // User dismissed the share sheet — silently ignore
+    try { await navigator.share(shareData); return; }
+    catch (err) {
       if (err && (err.name === "AbortError" || err.name === "NotAllowedError")) return;
       console.warn("[share] native share failed:", err);
-      // Fall through to clipboard fallback
     }
   }
 
-  // 2) Clipboard fallback (desktop / older browsers)
   const copied = await copyToClipboard(url);
-  if (copied) {
-    flashShareButton();
-    showToast("App link copied 📋");
-  } else {
-    // 3) Last resort — show a prompt so the user can copy manually
-    window.prompt("Copy this link:", url);
-  }
+  if (copied) { flashShareButton(); showToast("App link copied 📋"); }
+  else window.prompt("Copy this link:", url);
 }
 
-/* ---------- Clipboard helper with modern + legacy fallback ---------- */
 async function copyToClipboard(text) {
-  // Modern async clipboard API (requires HTTPS / localhost)
   if (navigator.clipboard && window.isSecureContext) {
     try { await navigator.clipboard.writeText(text); return true; }
     catch (err) { console.warn("[clipboard] modern API failed:", err); }
   }
-
-  // Legacy fallback — hidden textarea + execCommand
   try {
     const ta = document.createElement("textarea");
     ta.value = text;
@@ -1235,17 +1343,13 @@ async function copyToClipboard(text) {
   }
 }
 
-/* ---------- Brief visual feedback on the button ---------- */
 function flashShareButton() {
   const btn = document.getElementById("nav-share-app");
   const label = document.getElementById("nav-share-label");
   if (!btn) return;
-
   const originalLabel = label?.textContent || "Share App";
-
   btn.classList.add("is-copied");
   if (label) label.textContent = "Link Copied ✓";
-
   clearTimeout(flashShareButton._timer);
   flashShareButton._timer = setTimeout(() => {
     btn.classList.remove("is-copied");
@@ -1269,12 +1373,13 @@ function boot() {
   initMaya();
   initEload();
   initExpenses();
+  initStaff();
   wireNav();
   wireMobileNav();
   wireDashboardRefresh();
   wireInstallPrompt();
   document.getElementById("nav-share-app")
-  ?.addEventListener("click", shareAppLink);
+    ?.addEventListener("click", shareAppLink);
   wireTerms();
   wireAllModals();
   wireOnlineOffline();
@@ -1292,8 +1397,13 @@ function boot() {
       stopThemeRotationTicker();
       stopUserCountTicker();
 
-      // Reset the post-approval flag on ANY auth state transition so
-      // switching accounts always runs the full init + gate logic.
+      if (state.unsubscribeWorkspace) {
+        try { state.unsubscribeWorkspace(); } catch {}
+        state.unsubscribeWorkspace = null;
+      }
+      state.currentWorkspace = null;
+      state.workspaceStaff = null;
+      state.workspaceInvites = null;
       state._postApprovalRan = false;
     }
   });
