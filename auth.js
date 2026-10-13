@@ -184,25 +184,33 @@ function friendlyAuthError(code) {
 }
 
 /* =========================================================
-   WORKSPACE BOOTSTRAP — create a fresh workspace for a new owner
+   WORKSPACE BOOTSTRAP — IDEMPOTENT
+   ---------------------------------------------------------
+   Uses the user's UID as the workspace ID. This makes the
+   operation fully idempotent — calling it twice yields the
+   same doc (setDoc with merge). No duplicates possible.
    ========================================================= */
 async function createWorkspaceForOwner(user) {
-  const wsRef = doc(collection(db, "workspaces"));
-  const wsId = wsRef.id;
+  const wsId = user.uid;
+  const wsRef = doc(db, "workspaces", wsId);
 
-  const fallbackName = (user.displayName || (user.email || "").split("@")[0] || "Store") + "'s Store";
+  const storeName =
+    (user.displayName ? `${user.displayName}'s Store` :
+     (user.email || "").split("@")[0] + "'s Store") || "My Store";
 
   await setDoc(wsRef, {
     id: wsId,
-    name: fallbackName,
+    name: storeName,
     ownerUid: user.uid,
-    ownerEmail: user.email,
+    ownerEmail: (user.email || "").toLowerCase(),
     plan: "free",
-    staffCount: 0,
+    staffCount: 1,                 // owner counts as the first member
+    status: "active",
     createdAt: serverTimestamp(),
     createdBy: user.uid
-  });
+  }, { merge: true });
 
+  console.log("[workspace] created/updated:", wsId);
   return wsId;
 }
 
@@ -240,6 +248,7 @@ export async function acceptWorkspaceInvite(code) {
     workspaceId: invite.workspaceId,
     role: invite.role || "cashier",
     approved: true,
+    accountStatus: "active",
     invitedBy: invite.invitedBy || null,
     invitedAt: serverTimestamp()
   });
@@ -327,6 +336,7 @@ export function initAuthUI() {
             workspaceId,
             role,
             approved: isSuper,
+            accountStatus: isSuper ? "active" : "pending",   // ← NEW
             displayName: cred.user.displayName || null,
             photoURL: cred.user.photoURL || null,
             provider: "password",
@@ -481,7 +491,7 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       const snap = await getDoc(userRef);
 
       if (!snap.exists()) {
-        // First-time profile creation
+        // ---------- First-time profile creation ----------
         let workspaceId;
         let role;
 
@@ -494,25 +504,39 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
         }
 
         await setDoc(userRef, {
-          email: user.email,
+          email: (user.email || "").toLowerCase(),
           workspaceId,
           role,
           approved: isSuper,
+          accountStatus: isSuper ? "active" : "pending",   // ← NEW
           displayName: user.displayName || null,
           photoURL: user.photoURL || null,
           provider: user.providerData?.[0]?.providerId || "password",
           createdAt: serverTimestamp()
         });
+
+        console.log("[Auth] created user doc:", user.uid, "role:", role, "status:", isSuper ? "active" : "pending");
       } else {
-        // Merge updated profile info (only safe fields)
+        // ---------- Existing user doc — patch safe fields ----------
         const data = snap.data();
         const patch = {};
 
         if (isSuper && (data.role !== "superadmin" || data.approved !== true)) {
           patch.role = "superadmin";
           patch.approved = true;
+          patch.accountStatus = "active";
           patch.workspaceId = data.workspaceId || user.uid;
         }
+
+        // Backfill accountStatus for legacy users so rules keep working
+        if (data.accountStatus === undefined) {
+          if (data.approved === true) {
+            patch.accountStatus = "active";
+          } else if (data.approved === false) {
+            patch.accountStatus = "pending";
+          }
+        }
+
         if (user.displayName && !data.displayName) patch.displayName = user.displayName;
         if (user.photoURL && !data.photoURL) patch.photoURL = user.photoURL;
 
@@ -520,7 +544,13 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
         if (provider && !data.provider) patch.provider = provider;
 
         if (Object.keys(patch).length) {
-          await updateDoc(userRef, patch);
+          try {
+            await updateDoc(userRef, patch);
+            console.log("[Auth] patched user doc:", Object.keys(patch).join(", "));
+          } catch (patchErr) {
+            // Non-fatal — we just couldn't write safe updates
+            console.warn("[Auth] patch skipped:", patchErr.code, patchErr.message);
+          }
         }
       }
     } catch (err) {
@@ -540,9 +570,16 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
     state.unsubscribeUserDoc = onSnapshot(userRef, (docSnap) => {
       if (!docSnap.exists()) return;
       state.currentUserData = docSnap.data();
+      const ud = state.currentUserData;
 
-      /* ---- Not approved ---- */
-      if (!state.currentUserData.approved) {
+      /* ---- Determine approval status ---- */
+      // New-style: accountStatus is the source of truth
+      // Legacy fallback: approved == true
+      const isActive = (ud.accountStatus === "active")
+                       || (ud.accountStatus === undefined && ud.approved === true);
+
+      /* ---- Not active (pending / suspended / rejected) ---- */
+      if (!isActive) {
         authScreen?.classList.add("hidden");
         appShell?.classList.add("hidden");
         pendingScreen?.classList.remove("hidden");
@@ -553,9 +590,8 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
         return;
       }
 
-      /* ---- Approved but no workspace → show join modal ---- */
-      const hasWorkspace =
-        !!state.currentUserData.workspaceId && !!state.currentUserData.role;
+      /* ---- Active but no workspace → show join modal ---- */
+      const hasWorkspace = !!ud.workspaceId && !!ud.role;
 
       if (!hasWorkspace) {
         authScreen?.classList.add("hidden");
@@ -566,7 +602,7 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
         return;
       }
 
-      /* ---- Fully approved → show the app ---- */
+      /* ---- Fully active → show the app ---- */
       $("join-workspace-modal")?.classList.add("hidden");
       pendingScreen?.classList.add("hidden");
       authScreen?.classList.add("hidden");
@@ -574,7 +610,7 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       stopAuthBgCarousel();
       document.body.style.overflow = "";
 
-      const isRealSuper = state.currentUserData.role === "superadmin";
+      const isRealSuper = ud.role === "superadmin";
       const navAdmin = $("nav-admin");
       if (navAdmin) navAdmin.classList.toggle("hidden", !isRealSuper);
 
@@ -590,7 +626,7 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
         try { state.unsubscribeWorkspace(); } catch {}
         state.unsubscribeWorkspace = null;
       }
-      const wsId = state.currentUserData.workspaceId;
+      const wsId = ud.workspaceId;
       if (wsId) {
         state.unsubscribeWorkspace = onSnapshot(
           doc(db, "workspaces", wsId),
@@ -603,7 +639,7 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
         );
       }
 
-      onApproved?.(state.currentUserData);
+      onApproved?.(ud);
     }, (err) => {
       console.error("[Auth] profile watch FAILED:", err.code, err.message);
       showToast(`Profile stream: ${err.code || err.message} ❌`);
