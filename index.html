@@ -245,6 +245,12 @@
     <button type="button" class="nav-btn" data-page="page-customers">
       <span class="nav-icon">👥</span><span>Utang Ledger</span>
     </button>
+
+    <!-- ⭐ STAFF — placed correctly INSIDE the sidebar, after Utang Ledger -->
+    <button type="button" class="nav-btn hidden" id="nav-staff" data-page="page-staff">
+      <span class="nav-icon">👥</span><span>Staff</span>
+    </button>
+
     <button type="button" class="nav-btn" data-page="page-labels">
       <span class="nav-icon">🏷️</span><span>Labels</span>
     </button>
@@ -284,7 +290,7 @@
       <span id="nav-download-label">Download App</span>
     </button>
     
-    <!-- ⬇️ SHARE APP BUTTON — NEW, PASTE HERE ⬇️ -->
+    <!-- ⬇️ SHARE APP BUTTON ⬇️ -->
     <button type="button" id="nav-share-app" class="nav-btn nav-btn-share" title="Share Kurt POS with a friend">
       <span class="nav-icon nav-icon-share" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="20" height="20"
@@ -964,32 +970,28 @@
     <div class="utang-payment-history" id="utang-payment-history"></div>
   </main>
 
-  <button type="button" class="nav-btn hidden" id="nav-staff" data-page="page-staff">
-  <span class="nav-icon">👥</span><span>Staff</span>
-  </button>
-
   <!-- ========================================================
-     PAGE — STAFF (owners/admins only)
-     ======================================================== -->
-<main id="page-staff" class="page hidden">
-  <h2 class="page-title">👥 Staff Management</h2>
+       PAGE — STAFF (owners/admins only)
+       ======================================================== -->
+  <main id="page-staff" class="page hidden">
+    <h2 class="page-title">👥 Staff Management</h2>
 
-  <div id="staff-role-gate" class="empty-state hidden">
-    <p>🔒 Staff management is only available to owners and admins.</p>
-  </div>
-
-  <div id="staff-body">
-    <div class="section-heading-row">
-      <h3 class="section-heading" style="margin:0;">Team Members</h3>
-      <button type="button" class="btn primary" id="invite-staff-btn">➕ Invite Staff</button>
+    <div id="staff-role-gate" class="empty-state hidden">
+      <p>🔒 Staff management is only available to owners and admins.</p>
     </div>
 
-    <div id="staff-list" class="customers-list"></div>
+    <div id="staff-body">
+      <div class="section-heading-row">
+        <h3 class="section-heading" style="margin:0;">Team Members</h3>
+        <button type="button" class="btn primary" id="invite-staff-btn">➕ Invite Staff</button>
+      </div>
 
-    <h3 class="section-heading">📨 Pending Invites</h3>
-    <div id="invites-list" class="customers-list"></div>
-  </div>
-</main>
+      <div id="staff-list" class="customers-list"></div>
+
+      <h3 class="section-heading">📨 Pending Invites</h3>
+      <div id="invites-list" class="customers-list"></div>
+    </div>
+  </main>
 
   <!-- ========================================================
        PAGE — LABELS
@@ -1845,7 +1847,7 @@
 </div>
 
 <!-- ============================================================
-     JOIN WORKSPACE MODAL (shown to approved staff without a workspace)
+     JOIN WORKSPACE MODAL
      ============================================================ -->
 <div id="join-workspace-modal" class="modal hidden">
   <div class="modal-card">
