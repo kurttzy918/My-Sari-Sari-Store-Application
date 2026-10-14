@@ -91,14 +91,29 @@ export function applyTheme(theme) {
   if (themeIcon) themeIcon.textContent = theme === "dark" ? "☀️" : "🌙";
 }
 
-/* -------- Workspace (multi-tenant) --------
-   All tenant data is scoped to the user's workspaceId, which now
-   points at a workspaces/{wsId} document shared by owner + staff.
-   Falls back to the user's uid only during first-time onboarding. */
-export const myWorkspace = () =>
-  state.currentUserData?.workspaceId ||
-  state.currentUser?.uid ||
-  null;
+/* =========================================================
+   ✅ FIX #4: WORKSPACE RESOLVER
+   ---------------------------------------------------------
+   STRICTER than the old version:
+   - Only returns TRIMMED non-empty STRINGS (never "", null, 0, etc.)
+   - Never falls through on empty strings to a wrong fallback
+   - Returns null if nothing valid is available
+   ---------------------------------------------------------
+   Why this matters:
+   The old code used `||` which would silently fall through on ""
+   and return a workspaceId with untrimmed whitespace. Firestore
+   rules compare `data.workspaceId == myWorkspaceId()` — if either
+   side has trailing whitespace or is empty, the write is denied.
+   ========================================================= */
+export const myWorkspace = () => {
+  const ws = state.currentUserData?.workspaceId;
+  if (typeof ws === "string" && ws.trim()) return ws.trim();
+
+  const uid = state.currentUser?.uid;
+  if (typeof uid === "string" && uid.trim()) return uid.trim();
+
+  return null;
+};
 
 /* -------- Movement doc factory -------- */
 export function movementDoc({ itemId, itemName, type, quantity, reason, note }) {
@@ -306,9 +321,7 @@ export function findItemByCode(code) {
 }
 
 /* =========================================================
-   STORE DISPLAY NAME — uses workspace name
-   Priority: manual override → workspace name
-            → Google display name → first name from email → fallback
+   STORE DISPLAY NAME
    ========================================================= */
 export function getStoreDisplayName() {
   try {
@@ -393,7 +406,7 @@ export function getTodayExpenses() {
 }
 
 /* =========================================================
-   ROLE GUARD — throws if user lacks permission
+   ROLE GUARD
    ========================================================= */
 export function requireManager() {
   if (!isManager()) {

@@ -5595,21 +5595,6 @@ body,
   .exp-preset-grid { grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); }
   .exp-color-grid { grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); }
 }
-.role-badge {
-  display: inline-block;
-  font-size: 9px;
-  font-weight: 800;
-  padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.4px;
-  vertical-align: middle;
-  margin-left: 4px;
-}
-.role-badge.owner      { background: #E8B33A; color: #000; }
-.role-badge.admin      { background: #8B5CF6; color: #fff; }
-.role-badge.cashier    { background: #10B981; color: #fff; }
-.role-badge.superadmin { background: #EF4444; color: #fff; }
-
 .invite-code {
   background: #0F172A;
   color: #5FC2A6;
@@ -5626,4 +5611,347 @@ body,
   border-radius: 3px;
   font-weight: 700;
   font-size: 11px;
+}
+/* =========================================================
+   BRAND PALETTE OVERRIDE — Orange #FF9900 + Slate #111827
+   ========================================================= */
+:root {
+  --brand:      #FF9900;
+  --brand-700:  #CC7A00;
+  --brand-600:  #E68A00;
+  --brand-500:  #FF9900;
+  --brand-400:  #FFAD33;
+  --brand-300:  #FFC266;
+  --brand-100:  #FFE5B3;
+  --brand-50:   #FFF7EB;
+  --brand-ink:  #111827;
+
+  --slate-900:  #111827;
+  --slate-800:  #1F2937;
+  --slate-700:  #374151;
+  --slate-600:  #4B5563;
+  --slate-500:  #6B7280;
+  --slate-400:  #9CA3AF;
+  --slate-300:  #D1D5DB;
+  --slate-200:  #E5E7EB;
+  --slate-100:  #F3F4F6;
+  --slate-50:   #F9FAFB;
+}
+
+/* Dark theme — orange accents on slate */
+html[data-theme="dark"] {
+  --bg:           #0B0F19;
+  --bg-elevated:  #111827;
+  --bg-card:      #1A2233;
+  --bg-hover:     #222C42;
+  --border:       #2A3447;
+  --border-soft:  #1F2937;
+
+  --text:          #F9FAFB;
+  --text-secondary:#9CA3AF;
+  --text-muted:    #6B7280;
+
+  --accent:        #FF9900;
+  --accent-hover:  #FFAD33;
+  --accent-soft:   rgba(255, 153, 0, 0.12);
+  --accent-ink:    #111827;
+}
+
+/* Light theme */
+html[data-theme="light"] {
+  --bg:           #F9FAFB;
+  --bg-elevated:  #FFFFFF;
+  --bg-card:      #FFFFFF;
+  --bg-hover:     #F3F4F6;
+  --border:       #E5E7EB;
+  --border-soft:  #F3F4F6;
+
+  --text:          #111827;
+  --text-secondary:#4B5563;
+  --text-muted:    #9CA3AF;
+
+  --accent:        #FF9900;
+  --accent-hover:  #E68A00;
+  --accent-soft:   rgba(255, 153, 0, 0.10);
+  --accent-ink:    #111827;
+}
+
+/* Primary buttons → orange */
+.btn.primary,
+button.btn.primary {
+  background: linear-gradient(135deg, #FF9900 0%, #E68A00 100%) !important;
+  color: #111827 !important;
+  border-color: #FF9900 !important;
+}
+.btn.primary:hover {
+  background: linear-gradient(135deg, #FFAD33 0%, #FF9900 100%) !important;
+  box-shadow: 0 6px 20px rgba(255, 153, 0, 0.35) !important;
+}
+
+/* Nav active state → orange */
+.nav-btn.active {
+  background: rgba(255, 153, 0, 0.12) !important;
+  color: #FF9900 !important;
+  border-color: rgba(255, 153, 0, 0.4) !important;
+}
+.nav-btn.active .nav-icon { color: #FF9900 !important; }
+
+/* Toggles, badges, and accent markers */
+.toggle-switch[aria-checked="true"] .toggle-knob { background: #FF9900 !important; }
+.role-badge.owner  { background: #FF9900 !important; color: #111827 !important; }
+.role-badge.admin  { background: #FFAD33 !important; color: #111827 !important; }
+.stat-card .stat-value,
+.kpi-card .kpi-value { color: #FF9900; }
+
+/* Card focus rings */
+input:focus, select:focus, textarea:focus {
+  border-color: #FF9900 !important;
+  box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.18) !important;
+}
+
+/* Progress bars use orange */
+.progress-bar.high { background: linear-gradient(90deg, #FF9900, #FFAD33) !important; }
+
+/* Topbar accent */
+.topbar { border-bottom: 1px solid var(--border); }
+.dash-live-badge { color: #FF9900 !important; }
+
+/* Sidebar brand text */
+.brand-mini-text .logo,
+.sidebar-brand-text strong { color: #FF9900; }
+.user-row.is-owner-row {
+  background: rgba(255, 153, 0, 0.06);
+  border-left: 3px solid #FF9900;
+}
+.self-tag {
+  font-size: 0.7rem;
+  color: #FF9900;
+  font-weight: 700;
+  margin-left: 4px;
+}
+.owner-protect {
+  font-size: 0.75rem;
+  color: #9CA3AF;
+  font-weight: 600;
+}
+/* =========================================================
+   FINAL BRAND OVERRIDE — Orange #FF9900 + Slate #111827
+   Must be LAST in the file to win the cascade.
+   ========================================================= */
+
+/* ---- Primary buttons everywhere ---- */
+.btn.primary,
+button.btn.primary,
+#pos-checkout,
+#auth-submit,
+#payment-confirm,
+#restock-confirm,
+.eload-sell-btn,
+#invite-send-btn {
+  background: #FF9900 !important;
+  color: #111827 !important;
+  border: 1px solid #FF9900 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 12px rgba(255, 153, 0, 0.25) !important;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.btn.primary:hover,
+button.btn.primary:hover,
+#pos-checkout:hover {
+  background: #FFAD33 !important;
+  box-shadow: 0 6px 20px rgba(255, 153, 0, 0.4) !important;
+  transform: translateY(-1px);
+}
+.btn.primary:active { transform: translateY(0); }
+
+/* ---- Sidebar nav ---- */
+.nav-btn { color: var(--text-secondary, #9CA3AF); }
+.nav-btn:hover {
+  background: rgba(255, 153, 0, 0.08) !important;
+  color: #FF9900 !important;
+}
+.nav-btn.active {
+  background: rgba(255, 153, 0, 0.14) !important;
+  color: #FF9900 !important;
+  border-left: 3px solid #FF9900 !important;
+}
+.nav-btn.active .nav-icon,
+.nav-btn.active span { color: #FF9900 !important; }
+
+/* ---- POS card stock pills ---- */
+.pos-stock-pill {
+  background: #111827 !important;
+  color: #F9FAFB !important;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.pos-stock-pill.low {
+  background: #FF9900 !important;
+  color: #111827 !important;
+}
+.pos-stock-pill.out {
+  background: #EF4444 !important;
+  color: #fff !important;
+}
+
+/* ---- POS cart / totals ---- */
+#pos-total,
+.pos-total-amount,
+#pos-change {
+  color: #FF9900 !important;
+  font-weight: 800 !important;
+}
+#pos-change.insufficient { color: #EF4444 !important; }
+
+/* ---- POS mini carousel slides ---- */
+.pos-mini-slide.hot     { background: rgba(255, 153, 0, 0.15) !important; color: #FF9900 !important; }
+.pos-mini-slide.discount { background: rgba(239, 68, 68, 0.15) !important; color: #EF4444 !important; }
+.pos-mini-slide.ok      { background: rgba(16, 185, 129, 0.12) !important; color: #10B981 !important; }
+.pos-mini-slide.new     { background: rgba(255, 153, 0, 0.2) !important; color: #FF9900 !important; }
+.pos-mini-slide.low     { background: rgba(239, 68, 68, 0.15) !important; color: #EF4444 !important; }
+
+/* ---- Sale badge on POS cards ---- */
+.pos-sale-badge {
+  background: #FF9900 !important;
+  color: #111827 !important;
+  font-weight: 800 !important;
+}
+
+/* ---- Stat cards + KPI ---- */
+.stat-value,
+.kpi-value { color: #FF9900 !important; }
+.stat-card .stat-value,
+.kpi-card .kpi-value { color: #FF9900 !important; }
+.kpi-card.profit .kpi-value { color: #10B981 !important; }
+
+/* ---- Role badges ---- */
+.role-badge.owner      { background: #FF9900 !important; color: #111827 !important; }
+.role-badge.admin      { background: #FFAD33 !important; color: #111827 !important; }
+.role-badge.superadmin { background: #111827 !important; color: #FF9900 !important; }
+.role-badge.cashier    { background: #4B5563 !important; color: #F9FAFB !important; }
+
+/* ---- Toggle switches ON ---- */
+.toggle-switch[aria-checked="true"] {
+  background: rgba(255, 153, 0, 0.3) !important;
+}
+.toggle-switch[aria-checked="true"] .toggle-knob {
+  background: #FF9900 !important;
+}
+
+/* ---- Input focus ---- */
+input:focus, select:focus, textarea:focus {
+  border-color: #FF9900 !important;
+  box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.2) !important;
+  outline: none !important;
+}
+
+/* ---- Progress bars ---- */
+.progress-bar.high   { background: linear-gradient(90deg, #FF9900, #FFAD33) !important; }
+.progress-bar.medium { background: linear-gradient(90deg, #FFAD33, #FFC266) !important; }
+.progress-bar.low    { background: linear-gradient(90deg, #EF4444, #F87171) !important; }
+
+/* ---- GCash page — kill the green heading ---- */
+.gcash-page-title,
+.gcash-page-title * { color: #FF9900 !important; }
+.gcash-stat.in strong,
+.gcash-stat.in small { color: #10B981 !important; }
+.gcash-stat.out strong,
+.gcash-stat.out small { color: #EF4444 !important; }
+.gcash-stat.fee strong { color: #FF9900 !important; }
+.gcash-stat.balance strong { color: #FF9900 !important; }
+
+/* ---- Page titles ---- */
+.page-title {
+  color: #FF9900 !important;
+  border-left: 4px solid #FF9900;
+  padding-left: 12px;
+}
+
+/* ---- Section headings ---- */
+.section-heading {
+  color: var(--text);
+  border-left: 3px solid #FF9900;
+  padding-left: 10px;
+}
+
+/* ---- Live badge ---- */
+.dash-live-badge { color: #FF9900 !important; }
+
+/* ---- Save button (already orange but let's be sure) ---- */
+#gcash-save-settings,
+#maya-save-settings,
+#eload-save-network-settings,
+#expense-form button[type="submit"],
+#customer-form button[type="submit"],
+#category-form button[type="submit"] {
+  background: #FF9900 !important;
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+
+/* ---- Bar fills in reports ---- */
+.rk-bar-fill { background: linear-gradient(90deg, #FF9900, #FFAD33) !important; }
+.rk-bar-fill.profit { background: linear-gradient(90deg, #10B981, #34D399) !important; }
+.rk-bar-fill.slow   { background: linear-gradient(90deg, #EF4444, #F87171) !important; }
+.rk-rank.rank-1 { background: #FF9900 !important; color: #111827 !important; }
+
+/* ---- History / sales / daily rows ---- */
+.daily-row-bar-fill { background: linear-gradient(90deg, #FF9900, #FFAD33) !important; }
+.history-receipt.is-selected { border-color: #FF9900 !important; box-shadow: 0 0 0 2px rgba(255,153,0,0.25); }
+.sale-badge.cash { background: #FF9900 !important; color: #111827 !important; }
+.sale-badge.credit { background: #8B5CF6 !important; color: #fff !important; }
+
+/* ---- Elite touch: subtle orange glow on hover ---- */
+.item-card:hover,
+.pos-card:hover,
+.customer-card:hover {
+  border-color: rgba(255, 153, 0, 0.5) !important;
+  box-shadow: 0 4px 20px rgba(255, 153, 0, 0.15) !important;
+}
+
+/* ---- Topbar ---- */
+.topbar {
+  border-bottom: 1px solid rgba(255, 153, 0, 0.15) !important;
+}
+.brand-mini-text .logo,
+.sidebar-brand-text strong {
+  color: #FF9900 !important;
+}
+/* =========================================================
+   BARCODE ROW (Add Item page)
+   ========================================================= */
+.barcode-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+}
+.barcode-row .ext-scan {
+  flex: 0 0 auto;
+  min-width: 220px;
+}
+.barcode-row #item-barcode {
+  flex: 1 1 auto;
+  min-width: 140px;
+}
+.barcode-row .scan-btn {
+  flex: 0 0 auto;
+  padding: 0 14px;
+}
+
+@media (max-width: 640px) {
+  .barcode-row {
+    flex-wrap: wrap;
+  }
+  .barcode-row .ext-scan {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .barcode-row #item-barcode {
+    flex: 1 1 auto;
+  }
+}
+.workspace-flag {
+  font-size: 0.85rem;
+  margin-left: 4px;
+  opacity: 0.8;
 }

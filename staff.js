@@ -94,26 +94,40 @@ function renderStaffList() {
     return;
   }
 
+  const ownerUid = state.currentWorkspace?.ownerUid;
+  const currentUid = state.currentUser?.uid;
+
   list.innerHTML = state.workspaceStaff.map(u => {
     const role = u.role || "staff";
-    const isOwnerRow = role === "owner";
-    const canRemove = isManager() && !isOwnerRow && u.id !== state.currentUser?.uid;
+    const isOwnerRow = role === "owner" || u.id === ownerUid;
+    const isSelf = u.id === currentUid;
+    const canRemove = isManager() && !isOwnerRow && !isSelf;
+
+    // Workspace owner gets a special badge
+    const ownerBadge = (u.id === ownerUid)
+      ? `<span class="role-badge owner" title="Workspace owner">👑 OWNER</span>`
+      : "";
+
     return `
-      <div class="user-row">
+      <div class="user-row ${isOwnerRow ? "is-owner-row" : ""}">
         <div class="user-info">
           <div class="user-mail">
             ${esc(u.email || "")}
+            ${ownerBadge}
             <span class="role-badge ${esc(role)}">${esc(roleLabel(role).toUpperCase())}</span>
+            ${isSelf ? `<span class="self-tag">(you)</span>` : ""}
           </div>
           <div class="user-meta">
-            ${u.approved ? "Approved" : "Pending"} ·
+            ${u.approved ? "✅ Approved" : "⏳ Pending"} ·
             Joined ${u.createdAt?.toDate?.().toLocaleDateString() || "—"}
           </div>
         </div>
         <div class="user-actions">
           ${canRemove
             ? `<button type="button" class="btn danger" onclick="removeStaff('${u.id}')">Remove</button>`
-            : ""}
+            : isOwnerRow
+              ? `<span class="owner-protect" title="Workspace owner cannot be removed">🔒 Protected</span>`
+              : ""}
         </div>
       </div>`;
   }).join("");
@@ -165,7 +179,8 @@ window.removeStaff = async (uid) => {
     await updateDoc(doc(db, "users", uid), {
       workspaceId: null,
       role: null,
-      approved: false
+      approved: false,
+      accountStatus: "pending"
     });
 
     // Decrement staffCount
@@ -209,6 +224,15 @@ window.revokeInvite = async (inviteId) => {
    RENDER PAGE
    ========================================================= */
 export function renderStaffPage() {
+  // Super admin has their own admin panel — hide staff management
+  if (state.currentUserData?.role === "superadmin") {
+    const gate = $("staff-role-gate");
+    if (gate) gate.classList.remove("hidden");
+    const body = $("staff-body");
+    if (body) body.classList.add("hidden");
+    return;
+  }
+
   renderStaffList();
   renderInvitesList();
 

@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0F0820" media="(prefers-color-scheme: dark)" />
-  <meta name="theme-color" content="#12544F" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="theme-color" content="#FF9900" media="(prefers-color-scheme: light)" />
   <meta name="description" content="Kurt Inventory · Smart Stock & Sales — multi-tenant inventory, POS, and analytics." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Kurt POS" />
   <title>Kurt Inventory · Smart Stock &amp; Sales</title>
@@ -24,13 +25,13 @@
   <!-- External libraries (loaded synchronously so app.js can rely on them) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-  
+
   <!-- Required for the built-in Camera Scanner -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  
+
   <!-- Fixed: Single, working QR code library for GCash / Maya -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js?v=2"></script>
+
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
@@ -176,7 +177,7 @@
       </div>
     </div>
 
-    <!-- NEW: live user count badge -->
+    <!-- Live user count badge -->
     <div id="user-count-badge" class="user-count-badge hidden" title="Stores using Kurt POS">
       <span class="user-count-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none"
@@ -247,7 +248,7 @@
     </button>
 
     <!-- ⭐ STAFF — placed correctly INSIDE the sidebar, after Utang Ledger -->
-    <button type="button" class="nav-btn hidden" id="nav-staff" data-page="page-staff">
+    <button type="button" class="nav-btn hidden" id="nav-staff" data-page="page-staff" aria-hidden="true">
       <span class="nav-icon">👥</span><span>Staff</span>
     </button>
 
@@ -276,7 +277,6 @@
       <span class="nav-icon">📄</span><span>Terms</span>
     </button>
 
-
     <button type="button" id="nav-download-app" class="nav-btn nav-btn-download" title="Download / Install App">
       <span class="nav-icon nav-icon-download" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="20" height="20"
@@ -289,8 +289,7 @@
       </span>
       <span id="nav-download-label">Download App</span>
     </button>
-    
-    <!-- ⬇️ SHARE APP BUTTON ⬇️ -->
+
     <button type="button" id="nav-share-app" class="nav-btn nav-btn-share" title="Share Kurt POS with a friend">
       <span class="nav-icon nav-icon-share" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="20" height="20"
@@ -305,14 +304,10 @@
       </span>
       <span id="nav-share-label">Share App</span>
     </button>
-    <!-- ⬆️ END SHARE APP BUTTON ⬆️ -->
 
-    
     <button type="button" id="logout-btn-mobile" class="nav-btn nav-btn-logout" style="display:none"></button>
   </nav>
   <div id="nav-backdrop" class="nav-backdrop"></div>
-
-  
 
   <!-- ========================================================
        PAGE — DASHBOARD
@@ -416,7 +411,7 @@
     </div>
   </div>
 
-    <!-- ============ MAIN CHARTS ============ -->
+  <!-- ============ MAIN CHARTS ============ -->
   <div class="charts-grid">
     <div class="chart-card">
       <div class="chart-card-head">
@@ -707,7 +702,6 @@
       <button type="button" class="btn ghost sm" id="export-history-pdf">📄 PDF</button>
     </div>
 
-    <!-- ⭐ NEW: bulk-select bar -->
     <div id="history-bulk-bar" class="history-bulk-bar hidden">
       <label class="bulk-select-all">
         <input type="checkbox" id="history-select-all" />
@@ -730,7 +724,6 @@
   <main id="page-add" class="page hidden">
     <h2 class="page-title">➕ Add / Edit Item</h2>
 
-    <!-- ============ INVENTORY ANALYTICS DASHBOARD ============ -->
     <div class="inv-analytics-panel">
       <div class="inv-analytics-header">
         <h3 class="section-heading" style="margin:0;">📊 Inventory Overview</h3>
@@ -808,12 +801,33 @@
             <input type="text" id="item-sku" placeholder="Auto" required />
           </label>
           <label>
-            Barcode
-            <div class="input-with-btn">
-              <input type="text" id="item-barcode" placeholder="Scan or type" />
-              <button type="button" class="btn ghost scan-btn" id="scan-barcode-btn">📷</button>
-            </div>
-          </label>
+        Barcode
+  <div class="barcode-row">
+    <!-- External USB / Bluetooth scanner input -->
+    <div class="ext-scan" title="External barcode scanner — click here, then scan">
+      <span class="ext-scan-icon" aria-hidden="true">▣</span>
+      <input
+        type="text"
+        id="item-barcode-ext-input"
+        class="ext-scan-input"
+        placeholder="Scan barcode…"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        inputmode="text"
+        aria-label="External barcode scanner input for Add Item"
+      />
+      <span class="ext-scan-dot" id="item-ext-scan-dot" aria-hidden="true" title="Scanner status"></span>
+    </div>
+
+    <!-- Manual field (unchanged) -->
+    <input type="text" id="item-barcode" placeholder="Or type manually" />
+
+    <!-- Camera scan button (unchanged) -->
+    <button type="button" class="btn ghost scan-btn" id="scan-barcode-btn">📷</button>
+  </div>
+</label>
         </div>
 
         <label>
@@ -879,7 +893,6 @@
       </form>
     </div>
 
-    <!-- Inventory list -->
     <div class="section-heading-row">
       <h3 class="section-heading">📦 Inventory</h3>
       <div class="export-btns">
@@ -954,7 +967,6 @@
 
     <h3 class="section-heading">💵 Utang Payment History</h3>
 
-    <!-- ⭐ NEW: bulk-select bar for payments -->
     <div id="payments-bulk-bar" class="history-bulk-bar hidden">
       <label class="bulk-select-all">
         <input type="checkbox" id="payments-select-all" />
@@ -971,7 +983,7 @@
   </main>
 
   <!-- ========================================================
-       PAGE — STAFF (owners/admins only)
+       PAGE — STAFF (owners/admins/superadmins only)
        ======================================================== -->
   <main id="page-staff" class="page hidden">
     <h2 class="page-title">👥 Staff Management</h2>
@@ -1032,7 +1044,6 @@
       GCash Tracker
     </h2>
 
-    <!-- Summary -->
     <div class="gcash-summary">
       <div class="gcash-stat in">
         <span class="gcash-stat-label">Cash In — Today</span>
@@ -1056,7 +1067,6 @@
       </div>
     </div>
 
-    <!-- Form -->
     <div class="card compact">
       <h3 class="card-title" id="gcash-form-title">Record GCash Transaction</h3>
       <form id="gcash-form">
@@ -1098,7 +1108,6 @@
       </form>
     </div>
 
-    <!-- Toolbar + list -->
     <div class="gcash-toolbar">
       <input type="search" id="gcash-search" placeholder="Search customer, ref, note…" />
       <select id="gcash-filter-type"><option value="">All Types</option></select>
@@ -1123,7 +1132,6 @@
       Pay Maya Tracker
     </h2>
 
-    <!-- Summary -->
     <div class="maya-summary">
       <div class="maya-stat in">
         <span class="maya-stat-label">Cash In — Today</span>
@@ -1147,7 +1155,6 @@
       </div>
     </div>
 
-    <!-- Form -->
     <div class="card compact">
       <h3 class="card-title" id="maya-form-title">Record Pay Maya Transaction</h3>
       <form id="maya-form">
@@ -1189,7 +1196,6 @@
       </form>
     </div>
 
-    <!-- Toolbar + list -->
     <div class="maya-toolbar">
       <input type="search" id="maya-search" placeholder="Search customer, ref, note…" />
       <select id="maya-filter-type"><option value="">All Types</option></select>
@@ -1205,13 +1211,12 @@
     <div class="maya-list" id="maya-list"></div>
   </main>
 
-    <!-- ========================================================
+  <!-- ========================================================
        PAGE — E-LOAD
        ======================================================== -->
   <main id="page-eload" class="page hidden">
     <h2 class="page-title">📱 E-Load Tracker</h2>
 
-    <!-- Summary -->
     <div class="eload-summary">
       <div class="eload-stat sales">
         <span class="eload-stat-label">Load Sales — Today</span>
@@ -1238,21 +1243,16 @@
       </div>
     </div>
 
-    <!-- Sell + Side -->
     <div class="eload-layout">
-
-      <!-- Quick Sell Panel -->
       <section class="eload-sell-panel">
         <header class="eload-panel-head">
           <h3>⚡ Quick Sell</h3>
           <span class="eload-panel-badge" id="eload-sell-hint">Select network & amount</span>
         </header>
 
-        <!-- Network selector -->
         <div class="eload-section-label">1 · Network</div>
         <div class="eload-network-grid" id="eload-network-grid"></div>
 
-        <!-- Amount selector -->
         <div class="eload-section-label">
           2 · Amount
           <button type="button" class="eload-custom-toggle" id="eload-custom-toggle">
@@ -1265,7 +1265,6 @@
           <input type="number" id="eload-custom-amount" min="1" step="1" placeholder="Enter amount ₱" inputmode="numeric" />
         </div>
 
-        <!-- Phone -->
         <div class="eload-section-label">3 · Customer Number</div>
         <input
           type="tel"
@@ -1277,7 +1276,6 @@
           maxlength="13"
         />
 
-        <!-- Customer name (optional) -->
         <input
           type="text"
           id="eload-customer"
@@ -1286,21 +1284,16 @@
           autocomplete="off"
         />
 
-        <!-- Live preview -->
         <div class="eload-preview" id="eload-preview">
           <div class="eload-preview-empty">Fill in the fields above to see the breakdown</div>
         </div>
 
-        <!-- Sell button -->
         <button type="button" class="btn primary block" id="eload-sell-btn" disabled>
           💰 Sell Load
         </button>
       </section>
 
-      <!-- Side Panel: Settings -->
       <aside class="eload-side">
-
-        <!-- Wallet card -->
         <div class="card compact eload-side-card">
           <h3 class="card-title">💼 Load Wallet</h3>
           <p class="eload-side-hint">
@@ -1316,7 +1309,6 @@
           </div>
         </div>
 
-        <!-- Network service fee settings -->
         <div class="card compact eload-side-card">
           <h3 class="card-title">⚙️ Service Fees</h3>
           <p class="eload-side-hint">
@@ -1327,11 +1319,9 @@
             💾 Save Service Fees
           </button>
         </div>
-
       </aside>
     </div>
 
-    <!-- Recent transactions -->
     <div class="section-heading-row">
       <h3 class="section-heading">📋 Recent E-Load Transactions</h3>
       <div class="export-btns">
@@ -1360,7 +1350,6 @@
   <main id="page-expenses" class="page hidden">
     <h2 class="page-title">💸 Expenses Tracker</h2>
 
-    <!-- Summary -->
     <div class="expenses-summary">
       <div class="expenses-stat today">
         <span class="expenses-stat-label">Today</span>
@@ -1412,7 +1401,7 @@
           <div id="expenses-budget-display" class="expenses-budget-display"></div>
           <button type="button" class="btn ghost sm block" id="expense-set-budget" style="margin-top:10px;">⚙️ Set Budget</button>
         </div>
-                <div class="card compact expenses-side-card">
+        <div class="card compact expenses-side-card">
           <h3 class="card-title">📊 This Month by Category</h3>
           <div class="expenses-category-list" id="expenses-category-breakdown"></div>
         </div>
@@ -1464,6 +1453,7 @@
 
     <h3 class="section-heading">All Users</h3>
     <div id="all-users-list"></div>
+
     <h3 class="section-heading">🏢 All Workspaces</h3>
     <div id="all-workspaces-list"></div>
   </main>
@@ -1627,7 +1617,6 @@
       <button type="button" class="btn icon-btn" id="import-close" aria-label="Close">✕</button>
     </div>
 
-    <!-- Auto-sync panel -->
     <div class="autosync-panel">
       <div class="autosync-title">🔄 Auto-Sync from File</div>
       <div class="autosync-hint">
@@ -1731,8 +1720,6 @@
     </div>
 
     <div class="install-instructions">
-
-      <!-- DESKTOP — Chrome / Edge / Brave -->
       <div class="install-guide" data-platform="desktop">
         <p><strong>On desktop (Chrome / Edge):</strong></p>
         <ol>
@@ -1745,7 +1732,6 @@
         </p>
       </div>
 
-      <!-- iOS Safari -->
       <div class="install-guide" data-platform="ios">
         <p><strong>On iPhone / iPad (Safari):</strong></p>
         <ol>
@@ -1755,7 +1741,6 @@
         </ol>
       </div>
 
-      <!-- Android Chrome -->
       <div class="install-guide" data-platform="android">
         <p><strong>On Android (Chrome):</strong></p>
         <ol>
@@ -1763,7 +1748,6 @@
           <li>Tap <span class="step-icon">Install app</span> or <span class="step-icon">Add to Home screen</span>.</li>
         </ol>
       </div>
-
     </div>
 
     <button type="button" class="btn ghost block" id="install-later">Maybe later</button>

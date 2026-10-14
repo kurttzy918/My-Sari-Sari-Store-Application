@@ -12,6 +12,28 @@ import {
 } from "./utils.js";
 
 /* =========================================================
+   ✅ HELPER: Resolve the correct workspaceId for writes
+   ========================================================= */
+function resolveWorkspaceId() {
+  const wsFromState = state.currentUserData?.workspaceId;
+  if (typeof wsFromState === "string" && wsFromState.trim()) {
+    return wsFromState.trim();
+  }
+
+  const wsFromHelper = myWorkspace();
+  if (typeof wsFromHelper === "string" && wsFromHelper.trim()) {
+    return wsFromHelper.trim();
+  }
+
+  const uid = state.currentUser?.uid;
+  if (typeof uid === "string" && uid.trim()) {
+    return uid.trim();
+  }
+
+  return null;
+}
+
+/* =========================================================
    LOCAL STATE
    ========================================================= */
 const mayaState = {
@@ -52,7 +74,7 @@ function renderMayaQR() {
   const canvas = $("maya-settings-canvas");
   if (!canvas) return;
   const retryBtn = $("maya-qr-retry");
-  
+
   if (typeof window.QRCode === "undefined") {
     retryBtn?.classList.remove("hidden");
     return;
@@ -92,7 +114,7 @@ function renderMayaSummary() {
 
     if (t.type === "in") balance += amt;
     else if (t.type === "out") balance -= amt;
-    balance += fee; // Fees are income
+    balance += fee;
 
     if (ms >= todayStart) {
       if (t.type === "in") { inToday += amt; inCount++; }
@@ -124,7 +146,6 @@ function renderMayaList() {
 
   let txns = (state.mayaTransactions || []).slice();
 
-  /* Filters */
   if (mayaState.filterType) txns = txns.filter(t => t.type === mayaState.filterType);
   if (mayaState.search) {
     const term = mayaState.search.toLowerCase();
@@ -182,20 +203,29 @@ function wireMayaForm() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const wsId = myWorkspace();
-    if (!wsId) { showToast("Workspace not ready ❌"); return; }
+
+    /* =========================================================
+       ✅ FIX: Robustly resolve workspaceId BEFORE writing
+       ========================================================= */
+    const wsId = resolveWorkspaceId();
+    if (!wsId) {
+      console.error("[maya] ❌ Cannot save — no workspaceId. userData:", state.currentUserData);
+      showToast("Workspace not ready — please refresh and try again ❌");
+      return;
+    }
 
     const amount = Number(valOf($("maya-amount")));
     if (!amount || amount <= 0) { showToast("Enter a valid amount ❌"); return; }
 
+    /* workspaceId is INCLUDED as a string, trimmed, non-empty */
     const data = {
+      workspaceId: String(wsId).trim(),
       type: valOf($("maya-type")) || "in",
       amount,
       fee: Number(valOf($("maya-fee"))) || 0,
       customer: valOf($("maya-customer")).trim(),
       reference: valOf($("maya-reference")).trim(),
       note: valOf($("maya-note")).trim(),
-      workspaceId: wsId,
       updatedAt: serverTimestamp()
     };
 
@@ -204,7 +234,11 @@ function wireMayaForm() {
         await updateDoc(doc(db, "maya_transactions", mayaState.editingId), data);
         showToast("Transaction updated ✅");
       } else {
-        await addDoc(collection(db, "maya_transactions"), { ...data, createdAt: serverTimestamp() });
+        await addDoc(collection(db, "maya_transactions"), {
+          ...data,
+          createdAt: serverTimestamp(),
+          userId: state.currentUser?.uid || null
+        });
         showToast("Transaction saved ✅");
       }
       form.reset();
@@ -213,6 +247,7 @@ function wireMayaForm() {
       mayaState.editingId = null;
       $("maya-cancel-edit")?.classList.add("hidden");
     } catch (err) {
+      console.error("[maya] save failed:", err.code, err.message, "payload:", data);
       showToast(`Failed: ${err.code || err.message} ❌`);
     }
   });
@@ -301,7 +336,6 @@ export function initMaya() {
   loadMayaSettings();
   renderMayaQR();
 
-  /* Settings */
   $("maya-save-settings")?.addEventListener("click", saveMayaSettings);
   $("maya-qr-retry")?.addEventListener("click", () => {
     if (typeof window.QRCode === "undefined") {
@@ -312,7 +346,6 @@ export function initMaya() {
     }
   });
 
-  /* Set Opening Balance */
   $("maya-set-opening")?.addEventListener("click", () => {
     const val = prompt("Enter opening balance (₱):");
     if (val === null) return;
@@ -322,7 +355,6 @@ export function initMaya() {
     showToast("Opening balance set ✅");
   });
 
-  /* Form */
   wireMayaForm();
   $("maya-cancel-edit")?.addEventListener("click", () => {
     mayaState.editingId = null;
@@ -332,7 +364,6 @@ export function initMaya() {
     $("maya-cancel-edit")?.classList.add("hidden");
   });
 
-  /* Filters */
   $("maya-search")?.addEventListener("input", debounce((e) => {
     mayaState.search = e.target.value || "";
     renderMayaList();
@@ -348,11 +379,9 @@ export function initMaya() {
     renderMayaList();
   });
 
-  /* Export */
   $("maya-export-excel")?.addEventListener("click", exportMayaExcel);
   $("maya-export-pdf")?.addEventListener("click", exportMayaPDF);
 
-  /* Populate type select */
   const typeSel = $("maya-type");
   if (typeSel && !typeSel.options.length) {
     typeSel.innerHTML = `
@@ -378,7 +407,10 @@ export function renderMayaPage() {
 
 export function startMayaListeners(onAfter) {
   const wsId = myWorkspace();
-  if (!wsId) return;
+  if (!wsId) {
+    console.warn("[Maya listener] skipped — no workspaceId yet");
+    return;
+  }
 
   state.unsubscribers.maya = onSnapshot(
     query(collection(db, "maya_transactions"), where("workspaceId", "==", wsId)),
@@ -386,7 +418,7 @@ export function startMayaListeners(onAfter) {
       state.mayaTransactions = snap.docs
         .map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }))
         .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
-      
+
       safeRender(renderMayaSummary);
       safeRender(renderMayaList);
       onAfter?.();

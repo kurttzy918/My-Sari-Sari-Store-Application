@@ -185,10 +185,6 @@ function friendlyAuthError(code) {
 
 /* =========================================================
    WORKSPACE BOOTSTRAP — IDEMPOTENT
-   ---------------------------------------------------------
-   Uses the user's UID as the workspace ID. This makes the
-   operation fully idempotent — calling it twice yields the
-   same doc (setDoc with merge). No duplicates possible.
    ========================================================= */
 async function createWorkspaceForOwner(user) {
   const wsId = user.uid;
@@ -204,7 +200,7 @@ async function createWorkspaceForOwner(user) {
     ownerUid: user.uid,
     ownerEmail: (user.email || "").toLowerCase(),
     plan: "free",
-    staffCount: 1,                 // owner counts as the first member
+    staffCount: 1,
     status: "active",
     createdAt: serverTimestamp(),
     createdBy: user.uid
@@ -335,8 +331,8 @@ export function initAuthUI() {
             email,
             workspaceId,
             role,
-            approved: isSuper,
-            accountStatus: isSuper ? "active" : "pending",   // ← NEW
+            approved: true,
+            accountStatus: "active",
             displayName: cred.user.displayName || null,
             photoURL: cred.user.photoURL || null,
             provider: "password",
@@ -507,15 +503,15 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
           email: (user.email || "").toLowerCase(),
           workspaceId,
           role,
-          approved: isSuper,
-          accountStatus: isSuper ? "active" : "pending",   // ← NEW
+          approved: true,
+          accountStatus: "active",
           displayName: user.displayName || null,
           photoURL: user.photoURL || null,
           provider: user.providerData?.[0]?.providerId || "password",
           createdAt: serverTimestamp()
         });
 
-        console.log("[Auth] created user doc:", user.uid, "role:", role, "status:", isSuper ? "active" : "pending");
+        console.log("[Auth] created user doc:", user.uid, "role:", role, "status: active");
       } else {
         // ---------- Existing user doc — patch safe fields ----------
         const data = snap.data();
@@ -526,15 +522,6 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
           patch.approved = true;
           patch.accountStatus = "active";
           patch.workspaceId = data.workspaceId || user.uid;
-        }
-
-        // Backfill accountStatus for legacy users so rules keep working
-        if (data.accountStatus === undefined) {
-          if (data.approved === true) {
-            patch.accountStatus = "active";
-          } else if (data.approved === false) {
-            patch.accountStatus = "pending";
-          }
         }
 
         if (user.displayName && !data.displayName) patch.displayName = user.displayName;
@@ -548,7 +535,6 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
             await updateDoc(userRef, patch);
             console.log("[Auth] patched user doc:", Object.keys(patch).join(", "));
           } catch (patchErr) {
-            // Non-fatal — we just couldn't write safe updates
             console.warn("[Auth] patch skipped:", patchErr.code, patchErr.message);
           }
         }
@@ -572,13 +558,10 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       state.currentUserData = docSnap.data();
       const ud = state.currentUserData;
 
-      /* ---- Determine approval status ---- */
-      // New-style: accountStatus is the source of truth
-      // Legacy fallback: approved == true
-      const isActive = (ud.accountStatus === "active")
-                       || (ud.accountStatus === undefined && ud.approved === true);
+      /* ---- Single-user workspace mode: every authenticated account owns its private store. ---- */
+      const isActive = !!ud.workspaceId && !!ud.role;
 
-      /* ---- Not active (pending / suspended / rejected) ---- */
+      /* ---- Profile missing its own workspace: show setup/recovery screen. ---- */
       if (!isActive) {
         authScreen?.classList.add("hidden");
         appShell?.classList.add("hidden");

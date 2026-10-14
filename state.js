@@ -181,7 +181,8 @@ export function isSuperAdmin() {
 }
 
 export function isOwner() {
-  return myRole() === ROLES.OWNER;
+  // A normal account is the owner of its own private store.
+  return myRole() === ROLES.OWNER || myRole() === "user";
 }
 
 export function isAdmin() {
@@ -195,7 +196,12 @@ export function isCashier() {
 /** Owner OR Admin OR Super Admin — full data management */
 export function isManager() {
   const r = myRole();
-  return r === ROLES.OWNER || r === ROLES.ADMIN || r === ROLES.SUPERADMIN;
+  return r === ROLES.OWNER || r === ROLES.ADMIN || r === ROLES.SUPERADMIN || r === "user";
+}
+
+/** Only the owner of the workspace (not admin) can manage workspace settings */
+export function isWorkspaceOwner() {
+  return isOwner() || isSuperAdmin();
 }
 
 /* Feature permission helpers */

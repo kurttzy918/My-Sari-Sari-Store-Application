@@ -44,7 +44,7 @@ import {
 
 /* User count — Firestore aggregate query + handle */
 import {
-  getCountFromServer, collection, query, where
+  getCountFromServer, collection, query, where, limit
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { db } from "./firebase.js";
 
@@ -211,6 +211,10 @@ export function updateTopbarRoleBadge() {
 
 /* =========================================================
    ROLE-BASED VISIBILITY
+   ---------------------------------------------------------
+   BUGFIX: superadmin was NOT included in roleIsOwnerOrAdmin,
+   so the Staff button stayed hidden for the platform owner.
+   Now the check explicitly includes superadmin.
    ========================================================= */
 export function applyRoleVisibility() {
   const role = state.currentUserData?.role || "user";
@@ -221,11 +225,12 @@ export function applyRoleVisibility() {
     });
   };
 
-  const roleIsCashier   = role === "cashier";
-  const roleIsManager   = role === "owner" || role === "admin" || role === "superadmin";
-  const roleIsSuper     = role === "superadmin";
-  const roleIsOwner     = role === "owner";
-  const roleIsOwnerOrAdmin = role === "owner" || role === "admin";
+  const roleIsCashier        = role === "cashier";
+  const roleIsSuperAdmin     = role === "superadmin";
+  const roleIsOwner          = role === "owner";
+  const roleIsAdmin          = role === "admin";
+  const roleIsManager        = roleIsOwner || roleIsAdmin || roleIsSuperAdmin || role === "user";
+  const roleCanManageStaff   = false; // Single-user workspaces: no staff/cashier management.
 
   /* Cashier: only sees Dashboard, POS, Utang, GCash, Maya, E-Load */
   setVisible('[data-page="page-history"]',    !roleIsCashier);
@@ -235,21 +240,22 @@ export function applyRoleVisibility() {
   setVisible('[data-page="page-expenses"]',   !roleIsCashier);
 
   /* Admin page only for super admin */
-  setVisible('#nav-admin', roleIsSuper);
+  setVisible('#nav-admin', roleIsSuperAdmin);
 
-  /* Staff page only for owners/admins */
-  setVisible('#nav-staff', roleIsOwnerOrAdmin);
+  /* Staff/cashier management is intentionally disabled in single-user mode. */
+  setVisible('#nav-staff', false);
 
-  /* Terms page hidden for cashiers (they auto-accept as part of joining) */
+  /* Terms page hidden for cashiers */
   setVisible('#nav-terms', !roleIsCashier);
-
-  /* Hide the "Download App" / "Share App" nav on cashiers? No — keep them */
 
   /* If the currently-visible page is now hidden, jump to Dashboard */
   const activeNav = document.querySelector(".nav-btn.active");
   if (activeNav && activeNav.classList.contains("hidden")) {
     document.querySelector('.nav-btn[data-page="page-dashboard"]')?.click();
   }
+
+  console.log("[roles] visibility applied — role:", role,
+              "| staff:", roleCanManageStaff, "| admin:", roleIsSuperAdmin);
 }
 
 /* =========================================================
@@ -777,58 +783,62 @@ function stopAllListeners() {
 export function startUserAdminListener() {
   if (state.unsubscribers.users) return;
 
-  import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js").then(async ({ collection, onSnapshot, query }) => {
-    const { db } = await import("./firebase.js");
+  import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js").then(
+    async ({ collection, onSnapshot, query, limit }) => {
+      const { db } = await import("./firebase.js");
 
-    state.unsubscribers.users = onSnapshot(
-      query(collection(db, "users")),
-      (snap) => {
-        state.allUsers = snap.docs
-          .map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }))
-          .sort((a, b) => {
-            const ta = a.createdAt?.toMillis?.() ?? 0;
-            const tb = b.createdAt?.toMillis?.() ?? 0;
-            return tb - ta;
-          });
-        state.usersError = null;
-        safeRender(renderAdminUsers);
-      },
-      (err) => {
-        console.error("[Admin users listener]", err.code, err.message);
-        state.usersError = err.code || err.message;
-        state.allUsers = [];
-        safeRender(renderAdminUsers);
-      }
-    );
-  });
+      state.unsubscribers.users = onSnapshot(
+        query(collection(db, "users"), limit(500)),
+        (snap) => {
+          state.allUsers = snap.docs
+            .map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }))
+            .sort((a, b) => {
+              const ta = a.createdAt?.toMillis?.() ?? 0;
+              const tb = b.createdAt?.toMillis?.() ?? 0;
+              return tb - ta;
+            });
+          state.usersError = null;
+          safeRender(renderAdminUsers);
+        },
+        (err) => {
+          console.error("[Admin users listener]", err.code, err.message);
+          state.usersError = err.code || err.message;
+          state.allUsers = [];
+          safeRender(renderAdminUsers);
+        }
+      );
+    }
+  );
 }
 
 /* ---------- Super Admin workspaces listener ---------- */
 export function startWorkspaceAdminListener() {
   if (state.unsubscribers.workspaces) return;
 
-  import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js").then(async ({ collection, onSnapshot, query }) => {
-    const { db } = await import("./firebase.js");
+  import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js").then(
+    async ({ collection, onSnapshot, query, limit }) => {
+      const { db } = await import("./firebase.js");
 
-    state.unsubscribers.workspaces = onSnapshot(
-      query(collection(db, "workspaces")),
-      (snap) => {
-        state.allWorkspaces = snap.docs
-          .map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }))
-          .sort((a, b) => {
-            const ta = a.createdAt?.toMillis?.() ?? 0;
-            const tb = b.createdAt?.toMillis?.() ?? 0;
-            return tb - ta;
-          });
-        safeRender(renderAdminWorkspaces);
-      },
-      (err) => {
-        console.error("[Admin workspaces listener]", err.code, err.message);
-        state.allWorkspaces = [];
-        safeRender(renderAdminWorkspaces);
-      }
-    );
-  });
+      state.unsubscribers.workspaces = onSnapshot(
+        query(collection(db, "workspaces"), limit(500)),
+        (snap) => {
+          state.allWorkspaces = snap.docs
+            .map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }))
+            .sort((a, b) => {
+              const ta = a.createdAt?.toMillis?.() ?? 0;
+              const tb = b.createdAt?.toMillis?.() ?? 0;
+              return tb - ta;
+            });
+          safeRender(renderAdminWorkspaces);
+        },
+        (err) => {
+          console.error("[Admin workspaces listener]", err.code, err.message);
+          state.allWorkspaces = [];
+          safeRender(renderAdminWorkspaces);
+        }
+      );
+    }
+  );
 }
 
 function renderAdminUsers() {
@@ -840,7 +850,7 @@ function renderAdminUsers() {
     const errHtml = `
       <div class="empty-state admin-error-state">
         <p>⚠️ Could not load users</p>
-        <p class="admin-error-code">${String(state.usersError).replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))}</p>
+        <p class="admin-error-code">${escHtml(state.usersError)}</p>
         <p class="admin-error-hint">
           Firestore rules are blocking the read. In Firebase Console →
           Firestore → Rules, check the /users/{uid} match block.
@@ -932,9 +942,52 @@ function userRowHTML(u) {
 
 window.toggleApproval = async (userId, approved) => {
   if (!state.currentUserData || state.currentUserData.role !== "superadmin") return;
-  const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+  const { doc, getDoc, updateDoc, setDoc, serverTimestamp } =
+    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
   const { db } = await import("./firebase.js");
-  try { await updateDoc(doc(db, "users", userId), { approved }); showToast(approved ? "User approved ✅" : "Approval revoked"); }
+
+  try {
+    // Read the user first to know their current role + workspace
+    const snap = await getDoc(doc(db, "users", userId));
+    if (!snap.exists()) { showToast("User not found ❌"); return; }
+    const u = snap.data();
+
+    const patch = {
+      approved,
+      accountStatus: approved ? "active" : "pending"
+    };
+
+    // ✅ If approving a legacy user with role "user", promote to "owner"
+    if (approved && (!u.role || u.role === "user")) {
+      patch.role = "owner";
+    }
+
+    // ✅ Ensure they have a workspace so the sidebar has data to render
+    const wsId = u.workspaceId || userId;
+    if (approved && !u.workspaceId) {
+      patch.workspaceId = wsId;
+    }
+
+    await updateDoc(doc(db, "users", userId), patch);
+
+    // ✅ Backfill a workspace doc for legacy users
+    if (approved && wsId) {
+      await setDoc(doc(db, "workspaces", wsId), {
+        id: wsId,
+        name: u.displayName ? `${u.displayName}'s Store` : "My Store",
+        ownerUid: userId,
+        ownerEmail: (u.email || "").toLowerCase(),
+        plan: "free",
+        staffCount: 1,
+        status: "active",
+        createdAt: serverTimestamp(),
+        createdBy: userId,
+        migratedFromLegacy: true
+      }, { merge: true });
+    }
+
+    showToast(approved ? "User approved ✅" : "Approval revoked");
+  }
   catch (err) { showToast(`Failed: ${err.code || err.message} ❌`); }
 };
 
@@ -1059,7 +1112,6 @@ function onApproved(userData) {
   const shellVisible = !document.getElementById("app-shell")?.classList.contains("hidden");
   const alreadyRan   = !!state._postApprovalRan;
   if (shellVisible && alreadyRan) {
-    // Role may have changed — refresh visibility
     applyRoleVisibility();
     updateTopbarRoleBadge();
     return;
@@ -1088,7 +1140,6 @@ function onApproved(userData) {
   /* ---------- TERMS GATE ---------- */
   const uid = state.currentUser?.uid;
 
-  // Super admin and existing owners skip the session gate
   if (isSuper) {
     document.getElementById("nav-terms")?.classList.remove("hidden");
     state._postApprovalRan = true;
@@ -1096,7 +1147,6 @@ function onApproved(userData) {
     return;
   }
 
-  // Cashiers skip the terms gate (accepted implicitly when joining)
   if (userData.role === "cashier") {
     document.getElementById("nav-terms")?.classList.add("hidden");
     state._postApprovalRan = true;
@@ -1104,7 +1154,6 @@ function onApproved(userData) {
     return;
   }
 
-  // Owners/admins: gate once per session
   document.getElementById("nav-terms")?.classList.remove("hidden");
 
   if (!hasSessionAccepted(uid)) {

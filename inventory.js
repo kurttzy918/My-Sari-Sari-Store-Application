@@ -40,6 +40,135 @@ export function autoFillSku() {
 }
 
 /* =========================================================
+   EXTERNAL SCANNER — Add Item form (Barcode field)
+   ---------------------------------------------------------
+   Reads keyboard-wedge input from `#item-barcode-ext-input`,
+   debounces 250ms, and writes the code to `#item-barcode`.
+   Works with scanners that send OR don't send Enter.
+   ========================================================= */
+const ITEM_EXT_MIN_LENGTH = 4;
+const ITEM_EXT_DEBOUNCE_MS = 250;
+const ITEM_EXT_LOCK_MS = 400;
+
+let _itemExtTimer = null;
+let _itemExtLock = false;
+
+function focusItemExtScanner() {
+  const inp = document.getElementById("item-barcode-ext-input");
+  if (!inp) return;
+
+  // Don't steal focus while a modal is open
+  if (document.querySelector(
+    ".modal:not(.hidden), .scanner-modal:not(.hidden), .install-modal:not(.hidden), #camera-modal:not(.hidden)"
+  )) return;
+
+  // Don't steal focus while user is typing elsewhere
+  const active = document.activeElement;
+  if (active && active !== inp && active !== document.body) {
+    const tag = active.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (active.isContentEditable) return;
+  }
+
+  try { inp.focus({ preventScroll: true }); } catch { inp.focus(); }
+}
+
+function submitItemExtScan(code) {
+  const trimmed = String(code || "").trim();
+  if (!trimmed || trimmed.length < ITEM_EXT_MIN_LENGTH) return;
+  if (_itemExtLock) return;
+
+  _itemExtLock = true;
+  setTimeout(() => { _itemExtLock = false; }, ITEM_EXT_LOCK_MS);
+
+  console.log("[item-ext-scanner] captured:", trimmed);
+
+  // Write the scanned code into the real barcode field
+  const barcodeField = document.getElementById("item-barcode");
+  if (barcodeField) {
+    barcodeField.value = trimmed;
+    barcodeField.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  playSuccessSound();
+  showToast(`✓ Barcode set: ${trimmed}`);
+
+  // Clear the scanner buffer and refocus for the next scan
+  const extInput = document.getElementById("item-barcode-ext-input");
+  if (extInput) {
+    extInput.value = "";
+    requestAnimationFrame(() => {
+      try { extInput.focus({ preventScroll: true }); } catch { extInput.focus(); }
+    });
+  }
+}
+
+function wireItemExternalScanner() {
+  const inp = document.getElementById("item-barcode-ext-input");
+  if (!inp) {
+    // Not an error — the element may not exist if HTML hasn't been updated yet
+    return;
+  }
+
+  const dot = document.getElementById("item-ext-scan-dot");
+
+  const syncDot = () => {
+    if (!dot) return;
+    dot.classList.toggle("ready", document.activeElement === inp);
+  };
+  inp.addEventListener("focus", syncDot);
+  inp.addEventListener("blur", syncDot);
+  syncDot();
+
+  /* PRIMARY: debounce 250ms after typing stops */
+  inp.addEventListener("input", () => {
+    clearTimeout(_itemExtTimer);
+    const val = inp.value.trim();
+    if (val.length < ITEM_EXT_MIN_LENGTH) return;
+
+    _itemExtTimer = setTimeout(() => {
+      const code = inp.value.trim();
+      if (code && code.length >= ITEM_EXT_MIN_LENGTH) {
+        submitItemExtScan(code);
+      }
+    }, ITEM_EXT_DEBOUNCE_MS);
+  });
+
+  /* SUFFIX: instant submit if scanner sends Enter/Tab */
+  inp.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== "Tab") return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    clearTimeout(_itemExtTimer);
+    const code = inp.value.trim();
+    if (code) submitItemExtScan(code);
+  });
+
+  /* Focus management — auto-focus when visiting Add Item page */
+  document.querySelectorAll('.nav-btn[data-page="page-add"]').forEach(btn => {
+    btn.addEventListener("click", () => setTimeout(focusItemExtScanner, 250));
+  });
+
+  // Click empty space on Add Item page → refocus
+  const page = document.getElementById("page-add");
+  page?.addEventListener("click", (e) => {
+    const t = e.target;
+    if (t.closest("input, textarea, select, button, a, [role='button'], .photo-upload")) return;
+    focusItemExtScanner();
+  });
+
+  // Refocus when window regains focus while Add Item is visible
+  window.addEventListener("focus", () => {
+    const addVisible = !document.getElementById("page-add")?.classList.contains("hidden");
+    if (addVisible) setTimeout(focusItemExtScanner, 100);
+  });
+
+  // Initial focus attempt
+  setTimeout(focusItemExtScanner, 300);
+}
+
+/* =========================================================
    PHOTO HANDLING
    ========================================================= */
 function compressImage(file, maxSize = 420, quality = 0.72) {
@@ -295,6 +424,7 @@ function wireItemForm() {
       if ($("item-image-data")) $("item-image-data").value = "";
       if ($("item-image")) $("item-image").value = "";
       if ($("item-image-camera")) $("item-image-camera").value = "";
+      if ($("item-barcode-ext-input")) $("item-barcode-ext-input").value = "";
       showPhotoPreview(null);
       updateDiscountPreview();
       state.manualSku = false; state.skuInitialized = false;
@@ -490,7 +620,6 @@ export function renderInventory() {
 export function renderInventoryAnalytics() {
   if (!state.inventory || !state.inventory.length) return;
 
-  /* ---- Totals ---- */
   let totalRetail = 0;
   let totalCost = 0;
   let totalItems = 0;
@@ -498,7 +627,6 @@ export function renderInventoryAnalytics() {
   let outCount = 0;
   let expiringCount = 0;
 
-  /* ---- Category Map ---- */
   const catMap = {};
 
   state.inventory.forEach(item => {
@@ -517,7 +645,6 @@ export function renderInventoryAnalytics() {
     const exp = expiryStatus(item.expiry);
     if (exp.level === "expiring" || exp.level === "expired") expiringCount++;
 
-    /* Category Breakdown */
     const cat = item.category || "Uncategorized";
     if (!catMap[cat]) catMap[cat] = 0;
     catMap[cat] += qty * price;
@@ -525,7 +652,6 @@ export function renderInventoryAnalytics() {
 
   const potentialProfit = totalRetail - totalCost;
 
-  /* ---- Update DOM ---- */
   if ($("inv-total-retail")) $("inv-total-retail").textContent = fmtMoney(totalRetail);
   if ($("inv-total-cost")) $("inv-total-cost").textContent = fmtMoney(totalCost);
   if ($("inv-total-potential-profit")) $("inv-total-potential-profit").textContent = fmtMoney(potentialProfit);
@@ -535,12 +661,11 @@ export function renderInventoryAnalytics() {
   if ($("inv-count-out")) $("inv-count-out").textContent = fmtInt(outCount);
   if ($("inv-count-expiring")) $("inv-count-expiring").textContent = fmtInt(expiringCount);
 
-  /* ---- Category Breakdown List ---- */
   const catListEl = $("inv-category-breakdown");
   if (catListEl) {
     const entries = Object.entries(catMap)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5); // Top 5
+      .slice(0, 5);
 
     const maxVal = entries.length ? entries[0][1] : 1;
 
@@ -634,18 +759,15 @@ export function renderDashboardInventory() {
     .map(item => dashboardPosCardHTML(item, soldMap[item.id] || 0))
     .join("");
 
-  // Tap → add to POS cart (same behaviour as the POS page)
   container.querySelectorAll(".pos-card").forEach(card => {
     card.addEventListener("click", () => {
       import("./pos.js").then(mod => mod.addToCart(card.dataset.id));
     });
   });
 
-  // Kick the shared mini-carousel ticker (also runs on the POS page)
   startPosMiniCarousels();
 }
 
-/* POS-style compact card, used only by the dashboard */
 function dashboardPosCardHTML(item, sold) {
   const isOut = item.quantity === 0;
   const isLow = item.quantity > 0 && item.quantity <= (item.threshold ?? 5);
@@ -1157,10 +1279,8 @@ function categoryThumbHTML(cat) {
   `;
 }
 
-/* ---------- Selection state ---------- */
 const selectedCategories = new Set();
 
-/* ---------- Bulk bar injection ---------- */
 function ensureCategoriesBulkBar() {
   if (document.getElementById("categories-bulk-bar")) return;
 
@@ -1180,7 +1300,6 @@ function ensureCategoriesBulkBar() {
   `;
   grid.insertAdjacentElement("beforebegin", bar);
 
-  /* Wire once */
   bar.querySelector("#categories-select-all")?.addEventListener("change", (e) => {
     const checked = e.target.checked;
     document.querySelectorAll("#category-grid .cat-row-checkbox").forEach(cb => {
@@ -1221,7 +1340,6 @@ function updateCategoriesBulkUI() {
   }
 }
 
-/* ---------- Bulk delete ---------- */
 async function deleteCategoriesBulk(ids) {
   if (!ids?.length) return;
   const n = ids.length;
@@ -1244,12 +1362,10 @@ async function deleteCategoriesBulk(ids) {
   }
 }
 
-/* ---------- Main render ---------- */
 export function renderCategories() {
   const grid = document.getElementById("category-grid");
   if (!grid) return;
 
-  /* Prune stale selections (deleted or filtered out) */
   const currentIds = new Set(state.categories.map(c => c.id));
   [...selectedCategories].forEach(id => {
     if (!currentIds.has(id)) selectedCategories.delete(id);
@@ -1305,7 +1421,6 @@ export function renderCategories() {
     `;
   }).join("");
 
-  /* Wire checkboxes */
   grid.querySelectorAll(".cat-row-checkbox").forEach(cb => {
     cb.addEventListener("change", () => {
       const id = cb.dataset.catId;
@@ -1316,12 +1431,10 @@ export function renderCategories() {
     });
   });
 
-  /* Wire thumb → image picker */
   grid.querySelectorAll(".cat-thumb").forEach(btn => {
     btn.addEventListener("click", () => openCategoryImagePicker(btn.dataset.catId));
   });
 
-  /* Wire per-row delete */
   grid.querySelectorAll(".cat-delete-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1579,7 +1692,6 @@ function handleScanResult(text) {
   const code = String(text || "").trim();
   if (!code) return;
 
-  /* Custom handler takes precedence (used by GCash customer-QR scanning) */
   if (typeof state.scanner.onCustomResult === "function") {
     const handler = state.scanner.onCustomResult;
     state.scanner.onCustomResult = null;
@@ -1670,6 +1782,7 @@ export function initInventory() {
   wireCategoryForm();
   wireImport();
   wireAutoSync();
+  wireItemExternalScanner();     // 👈 ADDED: external scanner for Barcode field
   ensureCategoriesBulkBar();
   $("search-input")?.addEventListener("input", debounce(renderInventory, 150));
   $("filter-category")?.addEventListener("change", renderInventory);
@@ -1721,13 +1834,6 @@ async function parseExcelFile(file) {
   return XLSX.utils.sheet_to_json(ws, { defval: "" });
 }
 
-/* =========================================================
-   SMART COLUMN MATCHER — with optional exclusion patterns
-   ---------------------------------------------------------
-   Exact match first, then partial. The optional `exclude`
-   list prevents columns like "Discount price" from being
-   matched when the caller is looking for "Price".
-   ========================================================= */
 function findColumnKey(raw, candidates, excludeSubstrings = []) {
   const keys = Object.keys(raw || {});
   const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -1738,7 +1844,6 @@ function findColumnKey(raw, candidates, excludeSubstrings = []) {
     return excludes.some(ex => kn.includes(ex));
   };
 
-  // 1) Exact match
   for (const cand of candidates) {
     const n = norm(cand);
     if (!n) continue;
@@ -1746,7 +1851,6 @@ function findColumnKey(raw, candidates, excludeSubstrings = []) {
     if (exact) return exact;
   }
 
-  // 2) Partial match — still respects the exclusion list
   for (const cand of candidates) {
     const n = norm(cand);
     if (!n) continue;
@@ -1756,19 +1860,11 @@ function findColumnKey(raw, candidates, excludeSubstrings = []) {
   return null;
 }
 
-/* =========================================================
-   DISCOUNT PERCENTAGE COLUMN MATCHER
-   ---------------------------------------------------------
-   Explicit. Never fuzzy-matches "Discount price" because
-   that header always contains "price" / "amount" / currency
-   and is rejected by the guard below.
-   ========================================================= */
 function findDiscountPercentColumn(raw) {
   if (!raw) return null;
   const keys = Object.keys(raw);
   const norm = (s) => String(s || "").trim().toLowerCase();
 
-  // ---- 1) Exact whitelist ----
   const wanted = [
     "%", "pct", "percent", "% off", "percent off",
     "disc%", "disc %", "disc.%", "disc. %",
@@ -1785,46 +1881,23 @@ function findDiscountPercentColumn(raw) {
     if (hit) return hit;
   }
 
-  // ---- 2) Regex fallback — strictly excludes anything
-  //        that could be a "price" / "amount" / currency column.
   for (const k of keys) {
     const t = norm(k);
-
-    // Reject price/amount/peso/₱/php columns first
     if (/(price|amount|peso|php|₱)/i.test(t)) continue;
-
-    // Starts with disc/discount AND contains %/percent/rate/pct
     if (/^(disc|discount)\b/.test(t) && /(%|percent|rate|pct)/.test(t)) return k;
-
-    // Bare "%" or "% off"
     if (/^%/.test(t)) return k;
-
-    // Starts with percent/pct
     if (/^(percent|pct)\b/.test(t)) return k;
   }
 
   return null;
 }
 
-/* =========================================================
-   NORMALIZE IMPORT ROW
-   ---------------------------------------------------------
-   - Price is the base selling price (never a discounted one).
-   - Discount is derived ONLY from the % column.
-   - Handles Excel percentage cells stored as decimals
-     (0.1 → 10%, 0.25 → 25%) so a "10%" cell never becomes
-     a 0.1% discount.
-   - If the % column is missing, blank, null, or 0, both
-     discount and discountPrice are set to 0 explicitly —
-     this clears any previous discount on update.
-   ========================================================= */
 function normalizeImportRow(raw) {
   const getByCandidates = (candidates, exclude = []) => {
     const key = findColumnKey(raw, candidates, exclude);
     return key != null ? raw[key] : "";
   };
 
-  /* Parse numbers, handling Excel decimals & thousand separators */
   const numOf = (v) => {
     if (v === "" || v == null) return null;
     if (typeof v === "number" && isFinite(v)) return v;
@@ -1834,24 +1907,14 @@ function normalizeImportRow(raw) {
     return isNaN(n) ? null : n;
   };
 
-  /* Percentage parser:
-       number 0.10  → 10     (Excel decimal form)
-       string "10%" → 10
-       string "0.1" → 10     (assume decimal form)
-       number 10    → 10
-       number 0     → 0
-       blank/null   → null   (no discount) */
   const pctOf = (v) => {
     const rawN = numOf(v);
     if (rawN == null) return null;
     if (rawN === 0) return 0;
-    /* If the parsed value is strictly between 0 and 1, Excel is
-       almost certainly handing us the decimal form of a percent. */
     if (rawN > 0 && rawN < 1) return Number((rawN * 100).toFixed(4));
     return rawN;
   };
 
-  /* ---------- Core fields ---------- */
   const name      = String(getByCandidates(["Name", "Product", "Product Name", "Item"]) || "").trim();
   const sku       = String(getByCandidates(["SKU", "Sku", "Code", "Item Code"]) || "").trim();
   const barcode   = String(getByCandidates(["Barcode", "Bar Code", "EAN", "UPC", "GTIN"]) || "").trim();
@@ -1859,11 +1922,6 @@ function normalizeImportRow(raw) {
   const quantity  = numOf(getByCandidates(["Quantity", "Qty", "Stock", "On Hand"])) || 0;
   const cost      = numOf(getByCandidates(["Cost", "Cost Price", "Puhunan", "Buy Price"])) || 0;
 
-  /* ---------------------------------------------------------
-     PRICE — explicitly reject any column containing
-     "discount", "disc", "sale", or "promo". This guarantees
-     we never read the discounted price as the base price.
-     --------------------------------------------------------- */
   const price = numOf(getByCandidates(
     [
       "Selling Price", "SellingPrice", "Selling",
@@ -1877,9 +1935,6 @@ function normalizeImportRow(raw) {
   const expiry    = String(getByCandidates(["Expiry", "Expiry Date", "Expiration", "Best Before"]) || "").trim();
   const threshold = numOf(getByCandidates(["Threshold", "Min Stock", "Low Stock", "Reorder Point"])) || 5;
 
-  /* ---------------------------------------------------------
-     DISCOUNT — the % column is authoritative.
-     --------------------------------------------------------- */
   const discPctKey = findDiscountPercentColumn(raw);
   const rawPct = discPctKey != null ? raw[discPctKey] : "";
   const pctVal = pctOf(rawPct);
@@ -1892,9 +1947,7 @@ function normalizeImportRow(raw) {
     discount = Number(cappedPct.toFixed(4));
     discountPrice = Number((price * (1 - cappedPct / 100)).toFixed(2));
   }
-  /* else: discount / discountPrice remain 0 → clears any previous discount */
 
-  /* Debug — visible in browser console */
   try {
     if (console?.debug) {
       console.debug("[import] row:", name || "(no name)",
@@ -1916,14 +1969,6 @@ function normalizeImportRow(raw) {
   };
 }
 
-/* =========================================================
-   PLAN IMPORT
-   ---------------------------------------------------------
-   Matches existing items by SKU, then Barcode, then Name.
-   This ensures rows without a SKU still update the existing
-   Firestore document instead of creating a duplicate — which
-   is what left the old discount in place previously.
-   ========================================================= */
 function planImport(rows) {
   const skuMap     = new Map();
   const barcodeMap = new Map();
@@ -2122,14 +2167,6 @@ function wireImport() {
   $("import-download-template")?.addEventListener("click", downloadImportTemplate);
 }
 
-/* =========================================================
-   OPTIONAL HELPER — clear ALL discounts in the workspace
-   ---------------------------------------------------------
-   Run once from the browser console after this fix ships:
-       window.clearAllDiscounts()
-   Wipes `discount` and `discountPrice` to 0 on every item so
-   any stale values left behind by the old importer are gone.
-   ========================================================= */
 export async function clearAllDiscounts() {
   const wsId = myWorkspace();
   if (!wsId) { showToast("Workspace not ready ❌"); return; }
@@ -2180,7 +2217,7 @@ export function startInventoryListeners(onAfterInventoryChange) {
       safeRender(renderExpiring);
       safeRender(renderDashboardInventory);
       safeRender(autoFillSku);
-      safeRender(renderInventoryAnalytics); // 👈 ADD THIS LINE
+      safeRender(renderInventoryAnalytics);
       onAfterInventoryChange?.();
     },
     (err) => { console.error("[Inventory listener]", err.code, err.message); showToast("Inventory sync failed ❌"); }
@@ -2221,19 +2258,16 @@ export function startInventoryListeners(onAfterInventoryChange) {
 
 const AUTOSYNC_DB     = "kurt-autosync";
 const AUTOSYNC_STORE  = "handles";
-const AUTOSYNC_LEGACY = "inventory-file";   // old global key — auto-migrated
+const AUTOSYNC_LEGACY = "inventory-file";
 
-/* ---------- Per-workspace key (one linked file per login) ---------- */
 function autosyncKey() {
   const ws = myWorkspace() || "default";
   return `inventory-file:${ws}`;
 }
 
-/* ---------- In-memory handle cache ---------- */
-let _cachedHandle = undefined;   // undefined = not loaded yet, null = none stored
+let _cachedHandle = undefined;
 let _cachedKey    = null;
 
-/* ---------- IndexedDB helpers ---------- */
 function _openIDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(AUTOSYNC_DB, 1);
@@ -2275,12 +2309,10 @@ async function _idbDel(key) {
   });
 }
 
-/* ---------- Support check ---------- */
 function supportsFileSystemAccess() {
   return typeof window !== "undefined" && "showOpenFilePicker" in window;
 }
 
-/* ---------- Handle storage (with legacy migration) ---------- */
 async function getStoredHandle() {
   const key = autosyncKey();
   if (_cachedKey === key && _cachedHandle !== undefined) return _cachedHandle;
@@ -2290,7 +2322,6 @@ async function getStoredHandle() {
     console.warn("[autosync] idb read failed:", e);
   }
 
-  /* One-time migration from the old global key */
   if (!handle) {
     try {
       const legacy = await _idbGet(AUTOSYNC_LEGACY);
@@ -2316,7 +2347,6 @@ async function setStoredHandle(handle) {
   else        await _idbDel(key);
 }
 
-/* ---------- Silent permission check (never prompts) ---------- */
 async function hasReadPermission(handle) {
   if (!handle) return false;
   try {
@@ -2328,7 +2358,6 @@ async function hasReadPermission(handle) {
   }
 }
 
-/* ---------- UI refresh ---------- */
 export async function updateAutoSyncUI() {
   const statusEl  = $("autosync-status");
   const linkBtn   = $("autosync-link-btn");
@@ -2378,10 +2407,6 @@ export async function updateAutoSyncUI() {
   }
 }
 
-/* ---------- Regrant permission ----------
-   MUST be called directly from a click handler.
-   Do NOT add awaits before requestPermission().
-   -------------------------------------------- */
 async function regrantPermission() {
   const handle = await getStoredHandle();
   if (!handle) {
@@ -2392,7 +2417,6 @@ async function regrantPermission() {
 
   let granted = false;
   try {
-    // Called as early as possible — the click's user gesture is still alive
     const perm = await handle.requestPermission({ mode: "read" });
     granted = perm === "granted";
   } catch (err) {
@@ -2409,11 +2433,9 @@ async function regrantPermission() {
   showToast("Access granted ✅");
   await updateAutoSyncUI();
 
-  /* Immediately do a silent sync so the user sees it working */
   await autoSyncFromFile({ silent: true });
 }
 
-/* ---------- Link a new file ---------- */
 export async function linkAutoSyncFile() {
   if (!supportsFileSystemAccess()) {
     showToast("Auto-sync needs Chrome / Edge desktop ⚠️");
@@ -2434,7 +2456,6 @@ export async function linkAutoSyncFile() {
     });
     if (!handle) return;
 
-    /* Explicit read grant — should succeed since the picker just ran */
     try {
       const perm = await handle.requestPermission({ mode: "read" });
       if (perm !== "granted") { showToast("Access denied ❌"); return; }
@@ -2447,16 +2468,14 @@ export async function linkAutoSyncFile() {
     showToast(`Linked: ${handle.name} ✅`);
     await updateAutoSyncUI();
 
-    /* First sync so the user sees it work */
     await autoSyncFromFile({ silent: false });
   } catch (err) {
-    if (err && err.name === "AbortError") return;   // user cancelled picker
+    if (err && err.name === "AbortError") return;
     console.error("[autosync] link failed:", err);
     showToast(`Link failed: ${err.message} ❌`);
   }
 }
 
-/* ---------- Unlink ---------- */
 export async function unlinkAutoSyncFile() {
   if (!confirm("Unlink the file? Auto-sync will stop.")) return;
   try {
@@ -2466,7 +2485,6 @@ export async function unlinkAutoSyncFile() {
   } catch (err) { showToast(`Failed: ${err.message} ❌`); }
 }
 
-/* ---------- Row compare ---------- */
 function rowMatchesInventory(current, row) {
   if (!current) return false;
   return (
@@ -2475,8 +2493,6 @@ function rowMatchesInventory(current, row) {
     (current.barcode || "")        === (row.barcode || "") &&
     Number(current.price || 0)     === Number(row.price || 0) &&
     Number(current.cost || 0)      === Number(row.cost || 0) &&
-    // 👇 QUANTITY IS IGNORED HERE so it never triggers an update
-    // Number(current.quantity || 0)  === (row.quantity || 0) && 
     Number(current.discountPrice || 0) === Number(row.discountPrice || 0) &&
     Number(current.discount || 0)  === Number(row.discount || 0) &&
     (current.expiry || "")         === (row.expiry || "") &&
@@ -2484,10 +2500,6 @@ function rowMatchesInventory(current, row) {
   );
 }
 
-/* ---------- Core sync ----------
-   NEVER prompts for permission.
-   Call regrantPermission() from a click handler instead.
-   -------------------------------- */
 export async function autoSyncFromFile({ silent = false } = {}) {
   if (!state.currentUser) return;
   if (!supportsFileSystemAccess()) {
@@ -2503,13 +2515,11 @@ export async function autoSyncFromFile({ silent = false } = {}) {
 
   const granted = await hasReadPermission(handle);
   if (!granted) {
-    /* No silent prompts — the user must click Re-grant */
     if (!silent) showToast("Access needed — click '🔓 Re-grant Access' ⚠️");
     await updateAutoSyncUI();
     return;
   }
 
-  /* Read & parse */
   let raw;
   try {
     const file = await handle.getFile();
@@ -2526,7 +2536,6 @@ export async function autoSyncFromFile({ silent = false } = {}) {
   const valid      = planned.filter(p => !p._errors.length);
   if (!valid.length) { if (!silent) showToast("No valid rows to sync ❌"); return; }
 
-  /* Only changed rows */
   const changed = [];
   for (const row of valid) {
     const current = row._existingId ? state.inventory.find(i => i.id === row._existingId) : null;
@@ -2541,18 +2550,16 @@ export async function autoSyncFromFile({ silent = false } = {}) {
   const wsId = myWorkspace();
   if (!wsId) { if (!silent) showToast("Workspace not ready ❌"); return; }
 
-    const BATCH_LIMIT = 200;
+  const BATCH_LIMIT = 200;
   let updated = 0, created = 0;
   try {
     for (let i = 0; i < changed.length; i += BATCH_LIMIT) {
       const chunk = changed.slice(i, i + BATCH_LIMIT);
       const batch = writeBatch(db);
-      
+
       for (const row of chunk) {
-        // Find the live item in the app to get its current quantity
         const currentItem = row._existingId ? state.inventory.find(i => i.id === row._existingId) : null;
 
-        // Handle discount logic: If Excel has 0 or blank, reset the discount
         const finalDiscount = row.discount > 0 ? row.discount : 0;
         const finalDiscountPrice = row.discount > 0 ? (row.discountPrice || 0) : 0;
 
@@ -2561,8 +2568,7 @@ export async function autoSyncFromFile({ silent = false } = {}) {
           sku: row.sku,
           barcode: row.barcode,
           category: row.category,
-          // 👇 PRESERVE APP QUANTITY: If item exists, keep the app's live quantity.
-          quantity: currentItem ? currentItem.quantity : row.quantity, 
+          quantity: currentItem ? currentItem.quantity : row.quantity,
           cost: row.cost,
           price: row.price,
           discount: finalDiscount,
@@ -2573,7 +2579,7 @@ export async function autoSyncFromFile({ silent = false } = {}) {
           workspaceId: wsId,
           updatedAt: serverTimestamp()
         };
-        
+
         if (row._action === "update" && row._existingId) {
           batch.update(doc(db, "inventory", row._existingId), data);
           updated++;
@@ -2592,7 +2598,6 @@ export async function autoSyncFromFile({ silent = false } = {}) {
   }
 }
 
-/* ---------- Periodic ticker (permission-aware, never toasts) ---------- */
 let _autosyncInterval = null;
 export function startAutoSyncTicker() {
   stopAutoSyncTicker();
@@ -2607,9 +2612,7 @@ export function stopAutoSyncTicker() {
   if (_autosyncInterval) { clearInterval(_autosyncInterval); _autosyncInterval = null; }
 }
 
-/* ---------- Wire the panel ---------- */
 export function wireAutoSync() {
-  /* One button, three modes: link / replace / regrant */
   $("autosync-link-btn")?.addEventListener("click", async (e) => {
     const mode = e.currentTarget.dataset.mode || "link";
     if (mode === "regrant") {

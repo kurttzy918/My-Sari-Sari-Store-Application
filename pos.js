@@ -10,7 +10,7 @@ import {
   myWorkspace, movementDoc, customerTxDoc, settleWrite, fmtMoney, fmtInt,
   fallbackColorFor, productImageHTML, playSuccessSound, playErrorSound, playCashSound,
   expiryStatus, getSoldMap, getFastSellingInfo,
-  roundMoney, findItemByCode,getStoreDisplayName, promptStoreRename
+  roundMoney, findItemByCode, getStoreDisplayName, promptStoreRename
 } from "./utils.js";
 import { renderCustomerPickerOptions } from "./customers.js";
 
@@ -76,21 +76,31 @@ export function handleBarcodeScan(code, opts = {}) {
 }
 
 /* =========================================================
-   EXTERNAL SCANNER — keyboard-wedge integration
-   (Single source: the dedicated #external-barcode-input)
+   EXTERNAL SCANNER — works WITH or WITHOUT Enter key
+   ---------------------------------------------------------
+   Strategy:
+   1. Listen to `input` events. Debounce 250ms.
+   2. If buffer >= MIN_LENGTH when timer fires → submit.
+   3. Also handle Enter/Tab for scanners that DO send suffix.
+   4. Guarantee focus so keystrokes land in the field.
    ========================================================= */
+const EXT_SCAN_MIN_LENGTH = 4;      // ignore anything shorter
+const EXT_SCAN_DEBOUNCE_MS = 250;   // wait 250ms after last char
+const EXT_SCAN_LOCK_MS = 400;       // block double-fire
+
+let _extScanTimer = null;
 let _extScanLock = false;
 
 function focusExternalScanner() {
   const inp = document.getElementById("external-barcode-input");
   if (!inp) return;
 
-  // Don't steal focus while a modal / camera scanner is open
+  // Don't steal focus when a modal is open
   if (document.querySelector(
     ".modal:not(.hidden), .scanner-modal:not(.hidden), .install-modal:not(.hidden)"
   )) return;
 
-  // Don't steal focus while the cashier is typing in another field
+  // Don't steal focus while user is typing in another field
   const active = document.activeElement;
   if (active && active !== inp && active !== document.body) {
     const tag = active.tagName;
@@ -101,9 +111,36 @@ function focusExternalScanner() {
   try { inp.focus({ preventScroll: true }); } catch { inp.focus(); }
 }
 
+function submitExternalScan(code) {
+  const trimmed = String(code || "").trim();
+  if (!trimmed || trimmed.length < EXT_SCAN_MIN_LENGTH) return;
+  if (_extScanLock) return;
+
+  _extScanLock = true;
+  setTimeout(() => { _extScanLock = false; }, EXT_SCAN_LOCK_MS);
+
+  console.log("[ext-scanner] submitting:", trimmed);
+
+  // Clear the field BEFORE processing (so next scan starts fresh)
+  const inp = document.getElementById("external-barcode-input");
+  if (inp) inp.value = "";
+
+  // Process
+  const result = handleBarcodeScan(trimmed);
+  if (result?.ok) playSuccessSound();
+
+  // Refocus for the next scan
+  requestAnimationFrame(() => {
+    try { inp?.focus({ preventScroll: true }); } catch { try { inp?.focus(); } catch {} }
+  });
+}
+
 function wireExternalScanner() {
   const inp = document.getElementById("external-barcode-input");
-  if (!inp) return;
+  if (!inp) {
+    console.warn("[ext-scanner] input not found");
+    return;
+  }
 
   const dot = document.getElementById("ext-scan-dot");
 
@@ -115,34 +152,49 @@ function wireExternalScanner() {
   inp.addEventListener("blur", syncDot);
   syncDot();
 
-  // Handles both Enter AND Tab (many USB scanners use Tab as suffix).
+  /* ============================================================
+     PRIMARY HANDLER — auto-submit after debounce
+     Works regardless of whether scanner sends Enter/Tab or not
+     ============================================================ */
+  inp.addEventListener("input", () => {
+    clearTimeout(_extScanTimer);
+    const val = inp.value.trim();
+
+    // If the scanner already delivered a full code AND we're sure
+    // the user isn't still typing, submit after the debounce window
+    if (val.length < EXT_SCAN_MIN_LENGTH) return;
+
+    _extScanTimer = setTimeout(() => {
+      const code = inp.value.trim();
+      if (code && code.length >= EXT_SCAN_MIN_LENGTH) {
+        submitExternalScan(code);
+      }
+    }, EXT_SCAN_DEBOUNCE_MS);
+  });
+
+  /* ============================================================
+     SUFFIX HANDLER — instant submit if scanner sends Enter/Tab
+     ============================================================ */
   inp.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" && e.key !== "Tab") return;
     e.preventDefault();
+    e.stopPropagation();
 
-    const code = String(inp.value || "").trim();
-    inp.value = "";
-
-    // Guard against scanners that fire the suffix twice
-    if (!code || _extScanLock) return;
-    _extScanLock = true;
-    setTimeout(() => { _extScanLock = false; }, 160);
-
-    handleBarcodeScan(code);
-
-    // Keep the field ready for the next scan
-    requestAnimationFrame(() => {
-      try { inp.focus({ preventScroll: true }); } catch { inp.focus(); }
-      syncDot();
-    });
+    clearTimeout(_extScanTimer);
+    const code = inp.value.trim();
+    if (code) submitExternalScan(code);
   });
 
-  // Some scanners fire NumpadEnter which triggers keypress as well
-  inp.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") e.preventDefault();
+  /* ============================================================
+     FOCUS MANAGEMENT — keep the field hot
+     ============================================================ */
+
+  // 1) When user navigates to POS, focus the field
+  document.querySelectorAll('.nav-btn[data-page="page-sales"]').forEach(btn => {
+    btn.addEventListener("click", () => setTimeout(focusExternalScanner, 150));
   });
 
-  // Auto-focus when the cashier clicks an empty area of the POS page
+  // 2) When user clicks empty area on POS page, focus the field
   const page = document.getElementById("page-sales");
   page?.addEventListener("click", (e) => {
     const t = e.target;
@@ -150,12 +202,14 @@ function wireExternalScanner() {
     focusExternalScanner();
   });
 
-  // Auto-focus when navigating to POS via sidebar / bottom nav
-  document.querySelectorAll('.nav-btn[data-page="page-sales"]').forEach(btn => {
-    btn.addEventListener("click", () => {
-      setTimeout(focusExternalScanner, 120);
-    });
+  // 3) When window regains focus while POS visible, refocus
+  window.addEventListener("focus", () => {
+    const posVisible = !document.getElementById("page-sales")?.classList.contains("hidden");
+    if (posVisible) setTimeout(focusExternalScanner, 100);
   });
+
+  // 4) Initial focus when POS module loads
+  setTimeout(focusExternalScanner, 300);
 }
 
 /* =========================================================
@@ -222,6 +276,7 @@ function updateCartQty(itemId, delta) {
   entry.qty = next; entry.stock = item.quantity;
   renderPosCart(); updateChange();
 }
+
 function removeFromCart(itemId) {
   state.posCart = state.posCart.filter(c => c.itemId !== itemId);
   renderPosCart(); updateChange();
@@ -637,7 +692,7 @@ export function showReceipt(data, groupInfo) {
     </div>
   `).join("");
 
-    content.innerHTML = `
+  content.innerHTML = `
     <div class="receipt-header">
       <div class="receipt-store" id="receipt-store-name" title="Click to rename your store">
         ${esc(getStoreDisplayName().toUpperCase())}
@@ -666,18 +721,19 @@ export function showReceipt(data, groupInfo) {
       Please come again 🙏
     </div>
   `;
+
+  // Wire the store-name rename (attached every time the receipt is rebuilt)
+  document.getElementById("receipt-store-name")?.addEventListener("click", () => {
+    promptStoreRename();
+    const el = document.getElementById("receipt-store-name");
+    if (el) el.textContent = getStoreDisplayName().toUpperCase();
+  });
+
   state.currentReceiptGroup = groupInfo || null;
   const delBtn = $("delete-receipt-btn");
   if (delBtn) delBtn.classList.toggle("hidden", !state.currentReceiptGroup);
   $("receipt-modal")?.classList.remove("hidden");
 }
-  // Clicking the store name lets the user rename it
-  document.getElementById("receipt-store-name")?.addEventListener("click", () => {
-    promptStoreRename();
-    // Re-render the visible name live
-    const el = document.getElementById("receipt-store-name");
-    if (el) el.textContent = getStoreDisplayName().toUpperCase();
-  });
 
 /* =========================================================
    VIEW / DELETE SALE
@@ -817,7 +873,6 @@ export function renderSales() {
     g.total += Number(s.total) || 0;
   });
 
-  /* Filter: receipt number OR any item matches (term + category) */
   let recent = [...groups.values()];
   if (term || catFilter) {
     recent = recent.filter(g => {

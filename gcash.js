@@ -29,6 +29,34 @@ const OPENING_KEY  = (ws) => `gcashOpeningBalance:${ws}`;
 const SETTINGS_KEY = (ws) => `gcashSettings:${ws}`;
 
 /* =========================================================
+   ✅ HELPER: Resolve the correct workspaceId for writes
+   ---------------------------------------------------------
+   Falls back through multiple sources so we NEVER write
+   `workspaceId: null` (which Firestore rules reject).
+   ========================================================= */
+function resolveWorkspaceId() {
+  // 1) Preferred: the user's saved workspaceId (post-approval)
+  const wsFromState = state.currentUserData?.workspaceId;
+  if (typeof wsFromState === "string" && wsFromState.trim()) {
+    return wsFromState.trim();
+  }
+
+  // 2) Fallback: myWorkspace() helper (may also fall back to uid)
+  const wsFromHelper = myWorkspace();
+  if (typeof wsFromHelper === "string" && wsFromHelper.trim()) {
+    return wsFromHelper.trim();
+  }
+
+  // 3) Last resort: the signed-in user's uid (single-tenant owner case)
+  const uid = state.currentUser?.uid;
+  if (typeof uid === "string" && uid.trim()) {
+    return uid.trim();
+  }
+
+  return null;
+}
+
+/* =========================================================
    OPENING BALANCE
    ========================================================= */
 function getOpeningBalance() {
@@ -68,7 +96,7 @@ function setGcashSettings(s) {
 }
 
 /* =========================================================
-   QR PAYLOAD BUILDER  (used by the Payment QR modal only)
+   QR PAYLOAD BUILDER
    ========================================================= */
 function buildQrPayload({ number, name, amount, reference, note }) {
   const lines = [
@@ -84,7 +112,7 @@ function buildQrPayload({ number, name, amount, reference, note }) {
 }
 
 /* =========================================================
-   QR RENDER HELPER — waits for library, retries, and falls back
+   QR RENDER HELPER
    ========================================================= */
 let _qrReadyPromise = null;
 
@@ -173,7 +201,7 @@ async function renderQr(canvas, text, opts = {}) {
 }
 
 /* =========================================================
-   EMVCo TLV PARSER — handles nested tags
+   EMVCo TLV PARSER
    ========================================================= */
 function parseEmvCoTlv(text) {
   const tags = {};
@@ -191,8 +219,7 @@ function parseEmvCoTlv(text) {
 }
 
 /* =========================================================
-   QR PARSER — extracts customer info from any scanned QR
-   Handles: URL · JSON · EMVCo/QR Ph · key:value · phone · plain
+   QR PARSER
    ========================================================= */
 function parseQrPayload(text) {
   const raw = String(text || "").trim();
@@ -206,7 +233,6 @@ function parseQrPayload(text) {
   };
   if (!raw) return out;
 
-  /* ---------- 1) URL with query params ---------- */
   if (/^https?:\/\//i.test(raw)) {
     try {
       const u = new URL(raw);
@@ -220,7 +246,6 @@ function parseQrPayload(text) {
     } catch {}
   }
 
-  /* ---------- 2) JSON ---------- */
   if (raw.startsWith("{")) {
     try {
       const j = JSON.parse(raw);
@@ -233,47 +258,31 @@ function parseQrPayload(text) {
     } catch {}
   }
 
-  /* ---------- 3) EMVCo TLV (QR Ph / GCash standard) ---------- */
   try {
     const tlv = parseEmvCoTlv(raw);
     if (tlv) {
-      /* Merchant Account Information — tags 26–51
-         Sub-tag 00 = GUID (e.g. "ph.ppmi.p2m")
-         Sub-tag 01 = account number / GCash number
-         Sub-tag 02 = alternate account number
-      */
       for (const merchantTag of ["26", "27", "28", "29", "30", "31", "32", "33"]) {
         const block = tlv[merchantTag];
         if (!block) continue;
         const sub = parseEmvCoTlv(block);
         if (!sub) continue;
 
-        // GCash numbers: sub-tag 01 is usually the primary ID
         if (sub["01"] && !out.number) {
           out.number = String(sub["01"]).trim();
         }
-        // Fallback: some providers use 02 or 03
         if (sub["02"] && !out.number && /^\d{7,}$/.test(String(sub["02"]))) {
           out.number = String(sub["02"]).trim();
         }
-        // Merchant/customer name inside the block (rare but possible)
         if (sub["00"] && !out.name && /[A-Za-z]/.test(String(sub["00"]))) {
-          // GUID strings like "ph.ppmi.p2m" aren't names — skip those
           const candidate = String(sub["00"]).trim();
           if (!/^ph\.[a-z0-9.]+$/i.test(candidate)) out.name = candidate;
         }
       }
 
-      // Merchant/Customer Name — tag 59
       if (tlv["59"]) out.name = String(tlv["59"]).trim();
-
-      // Merchant City — tag 60
       if (tlv["60"]) out.note = out.note || String(tlv["60"]).trim();
-
-      // Amount — tag 54
       if (tlv["54"]) out.amount = Number(tlv["54"]) || null;
 
-      // Additional Data Field — tag 62
       if (tlv["62"]) {
         const sub = parseEmvCoTlv(tlv["62"]);
         if (sub?.["01"]) out.reference = String(sub["01"]).trim();
@@ -287,7 +296,6 @@ function parseQrPayload(text) {
     console.warn("[gcash qr] EMVCo parse failed:", e);
   }
 
-  /* ---------- 4) Key : Value lines ---------- */
   const kv = {};
   raw.split(/[\n\r;|,]+/).forEach(line => {
     const m = line.match(/^\s*([A-Za-z0-9 _-]{2,24})\s*[:=]\s*(.+?)\s*$/);
@@ -300,11 +308,9 @@ function parseQrPayload(text) {
     if (out.name || out.number) return out;
   }
 
-  /* ---------- 5) Philippine mobile number anywhere in the text ---------- */
   const phone = raw.match(/(?:\+?63|0)?9\d{9}/);
   if (phone) out.number = phone[0];
 
-  /* ---------- 6) Fallback — short plain text becomes the name ---------- */
   if (!out.name && !out.number && raw.length <= 80 && !/^\d+$/.test(raw)) {
     out.name = raw;
   }
@@ -313,12 +319,11 @@ function parseQrPayload(text) {
 }
 
 /* =========================================================
-   SCANNED-QR HANDLER — auto-fill customer info + clear display
+   SCANNED-QR HANDLER
    ========================================================= */
 function handleScannedCustomerQr(text) {
   const parsed = parseQrPayload(text);
 
-  /* ---------- Show a clear, labeled result panel ---------- */
   const resultEl = $("gcash-scan-result");
   if (resultEl) {
     const hasAny = parsed.name || parsed.number || parsed.reference || parsed.amount;
@@ -365,27 +370,21 @@ function handleScannedCustomerQr(text) {
         </div>` : ""}
     `;
 
-    // Success animation pulse
     resultEl.classList.add("gcash-scan-pop");
     setTimeout(() => resultEl.classList.remove("gcash-scan-pop"), 900);
   }
 
-  /* ---------- Auto-fill transaction form fields ---------- */
-
-  // 1) Customer name → Customer field
   const custEl = $("gcash-customer");
   if (custEl && parsed.name) {
     custEl.value = parsed.name;
     custEl.classList.add("gcash-autofilled");
     setTimeout(() => custEl.classList.remove("gcash-autofilled"), 1300);
   } else if (custEl && !custEl.value && parsed.number) {
-    // Fallback: use the number as the customer identifier
     custEl.value = parsed.number;
     custEl.classList.add("gcash-autofilled");
     setTimeout(() => custEl.classList.remove("gcash-autofilled"), 1300);
   }
 
-  // 2) Reference → use the customer's GCash number if no reference and no value
   const refEl = $("gcash-reference");
   if (refEl && !refEl.value) {
     if (parsed.reference) {
@@ -399,7 +398,6 @@ function handleScannedCustomerQr(text) {
     }
   }
 
-  // 3) Amount → fill only if the field is empty and the QR had an amount
   const amtEl = $("gcash-amount");
   if (amtEl && !amtEl.value && parsed.amount) {
     amtEl.value = Number(parsed.amount).toFixed(2);
@@ -407,7 +405,6 @@ function handleScannedCustomerQr(text) {
     setTimeout(() => amtEl.classList.remove("gcash-autofilled"), 1300);
   }
 
-  // 4) Note → store the customer's GCash number for the transaction record
   const noteEl = $("gcash-note");
   if (noteEl && !noteEl.value && parsed.number) {
     noteEl.value = `Customer GCash: ${parsed.number}`;
@@ -437,7 +434,6 @@ function loadGcashSettingsIntoForm() {
 function wireGcashSettings() {
   loadGcashSettingsIntoForm();
 
-  /* Save button */
   $("gcash-save-settings")?.addEventListener("click", () => {
     setGcashSettings({
       number: valOf($("gcash-number")).trim(),
@@ -447,10 +443,8 @@ function wireGcashSettings() {
     showToast("GCash settings saved ✅");
   });
 
-  /* Scan Customer QR — reuses the shared camera scanner */
   $("gcash-scan-qr-btn")?.addEventListener("click", () => {
     openScanner("gcash-customer", (scannedText) => {
-      // Close the camera first (custom callback still runs synchronously)
       forceCloseScanner();
       handleScannedCustomerQr(scannedText);
     });
@@ -458,7 +452,7 @@ function wireGcashSettings() {
 }
 
 /* =========================================================
-   PAYMENT QR MODAL (unchanged — still generates a QR per transaction)
+   PAYMENT QR MODAL
    ========================================================= */
 let _currentQrTxn = null;
 
@@ -566,8 +560,17 @@ function wireGcashForm() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const wsId = myWorkspace();
-    if (!wsId) { showToast("Workspace not ready ❌"); return; }
+
+    /* =========================================================
+       ✅ FIX: Robustly resolve workspaceId BEFORE writing.
+       Prevents "permission-denied" caused by workspaceId = null.
+       ========================================================= */
+    const wsId = resolveWorkspaceId();
+    if (!wsId) {
+      console.error("[gcash] ❌ Cannot save — no workspaceId. userData:", state.currentUserData);
+      showToast("Workspace not ready — please refresh and try again ❌");
+      return;
+    }
 
     const idEl = $("gcash-id");
     const wasEditing = !!(idEl && idEl.value);
@@ -579,8 +582,9 @@ function wireGcashForm() {
     if (!amount || amount <= 0) { showToast("Amount must be greater than 0 ❌"); return; }
     if (fee < 0) { showToast("Fee cannot be negative ❌"); return; }
 
+    /* workspaceId is INCLUDED as a string, trimmed, non-empty */
     const data = {
-      workspaceId: wsId,
+      workspaceId: String(wsId).trim(),
       type,
       amount,
       fee,
@@ -605,6 +609,7 @@ function wireGcashForm() {
       }
       resetGcashForm();
     } catch (err) {
+      console.error("[gcash] save failed:", err.code, err.message, "payload:", data);
       showToast(`Failed: ${err.code || err.message} ❌`);
     }
   });
@@ -676,14 +681,9 @@ function renderGcashSummary() {
     const amt = Number(t.amount) || 0;
     const fee = Number(t.fee) || 0;
 
-    // Wallet balance uses gcashDir (GCash wallet up/down)
     if (meta.gcashDir === "in") totalIn += amt;
     else totalOut += amt;
 
-    // Summary cards use the transaction type's own meaning:
-    //   cash-in  → money IN  to the store
-    //   receive  → money IN  to the store
-    //   everything else → money OUT of the store
     const isStoreIn = (t.type === "cash-in" || t.type === "receive");
 
     if (ms >= start && ms < end) {
@@ -912,7 +912,10 @@ export function initGcash() {
 
 export function startGcashListeners(onAfter) {
   const wsId = myWorkspace();
-  if (!wsId) return;
+  if (!wsId) {
+    console.warn("[GCash listener] skipped — no workspaceId yet");
+    return;
+  }
   state.unsubscribers.gcash = onSnapshot(
     query(collection(db, "gcash_transactions"), where("workspaceId", "==", wsId)),
     (snap) => {
