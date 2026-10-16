@@ -11,26 +11,23 @@ import {
   getSoldMap, getSoldMapLastDays, getSalesByCategory, monthKey, monthLabel,
   getCSSVar, printHTML, downloadXLSX, downloadPDF,
   expiryStatus,
-  roundMoney,                                                    // ✅ NEW
-  getStoreDisplayName                                            // ✅ NEW
+  roundMoney,
+  getStoreDisplayName,
+  getRestockCost
 } from "./utils.js";
 import { stockProgress, renderPaginationBar } from "./inventory.js";
 
 const { CATEGORY_PALETTE } = CONSTANTS;
 
 /* =========================================================
-   LOCAL HELPERS — Expense-aware profit
-   -------------------------------------------------
-   These compute directly from state so reports.js doesn't
-   depend on utils.js exporting extra functions.
+   LOCAL HELPERS
    ========================================================= */
 function _getGrossProfit() {
   return roundMoney(
     (state.sales || []).reduce((sum, s) => {
       if (typeof s.profit === "number") return sum + s.profit;
-      const it = state.inventory.find(i => i.id === s.itemId);
-      const cost = (it && typeof it.cost === "number") ? it.cost : (s.cost || 0);
-      return sum + ((s.unitPrice || 0) - cost) * (s.quantity || 0);
+      const unitCost = Number(s.cost) || 0;
+      return sum + ((Number(s.unitPrice) || 0) - unitCost) * (Number(s.quantity) || 0);
     }, 0)
   );
 }
@@ -51,36 +48,62 @@ function _getNetProfit() {
 const selectedReceipts = new Set();
 
 /* =========================================================
-   STATS (stat cards) — now shows NET PROFIT (after expenses)
+   STAT CARDS
+   • Running Sales = Sales revenue − Restock Cost
+   • Stock Value   = Inventory retail value
+   • Net Profit    = Gross Profit − Expenses  (NO restock)
    ========================================================= */
 export function updateStats() {
   const total = state.inventory.length;
   const low = state.inventory.filter(i => i.quantity <= (i.threshold ?? 5)).length;
   const value = state.inventory.reduce((s, i) => s + (i.quantity * i.price || 0), 0);
-  const runningSales = state.sales.reduce((s, x) => s + (Number(x.total) || 0), 0);
 
-  /* ---------- Profit calculations ---------- */
-  const grossProfit = _getGrossProfit();
+  /* Running Sales = Sales − Restock Cost */
+  const grossSales  = state.sales.reduce((s, x) => s + (Number(x.total) || 0), 0);
+  const restockCost = getRestockCost();
+  const runningSales = roundMoney(grossSales - restockCost);
+
+  /* Net Profit = Gross − Expenses  (restock NOT included) */
+  const grossProfit   = _getGrossProfit();
   const totalExpenses = _getTotalExpenses();
-  const netProfit = roundMoney(grossProfit - totalExpenses);
+  const netProfit     = roundMoney(grossProfit - totalExpenses);
 
-  if ($("stat-total"))  $("stat-total").textContent = fmtInt(total);
-  if ($("stat-low"))    $("stat-low").textContent = fmtInt(low);
-  if ($("stat-value"))  $("stat-value").textContent = fmtMoney(value);
-  if ($("stat-sales"))  $("stat-sales").textContent = fmtMoney(runningSales);
-  if ($("stat-cats"))   $("stat-cats").textContent = fmtInt(state.categories.length);
+  if ($("stat-total")) $("stat-total").textContent = fmtInt(total);
+  if ($("stat-low"))   $("stat-low").textContent   = fmtInt(low);
+  if ($("stat-value")) $("stat-value").textContent = fmtMoney(value);
+  if ($("stat-cats"))  $("stat-cats").textContent  = fmtInt(state.categories.length);
 
-  /* ---------- Net Profit stat card with breakdown ---------- */
+  /* --- Running Sales card --- */
+  const salesEl = $("stat-sales");
+  if (salesEl) {
+    salesEl.textContent = fmtMoney(runningSales);
+    salesEl.classList.toggle("negative", runningSales < 0);
+
+    const oldSub = salesEl.parentElement.querySelector(".stat-sub");
+    if (oldSub) oldSub.remove();
+
+    const sub = document.createElement("div");
+    sub.className = "stat-sub";
+    sub.innerHTML = `
+      <span class="stat-sub-item">Sales: ${fmtMoney(grossSales)}</span>
+      <span class="stat-sub-sep">·</span>
+      <span class="stat-sub-item restock">− Restock: ${fmtMoney(restockCost)}</span>
+    `;
+    salesEl.parentElement.appendChild(sub);
+
+    salesEl.title =
+      `Running Sales = Sales (${fmtMoney(grossSales)}) − Restock Costs (${fmtMoney(restockCost)})`;
+  }
+
+  /* --- Net Profit card --- */
   const profitEl = $("stat-profit");
   if (profitEl) {
     profitEl.textContent = fmtMoney(netProfit);
     profitEl.classList.toggle("negative", netProfit < 0);
 
-    // Remove any leftover sub-line from a previous render
     const oldSub = profitEl.parentElement.querySelector(".stat-sub");
     if (oldSub) oldSub.remove();
 
-    // Add a small sub-line showing gross vs expenses
     const sub = document.createElement("div");
     sub.className = "stat-sub";
     sub.innerHTML = `
@@ -90,7 +113,8 @@ export function updateStats() {
     `;
     profitEl.parentElement.appendChild(sub);
 
-    profitEl.title = `Net Profit = Gross Profit (${fmtMoney(grossProfit)}) − Expenses (${fmtMoney(totalExpenses)})`;
+    profitEl.title =
+      `Net Profit = Gross Profit (${fmtMoney(grossProfit)}) − Expenses (${fmtMoney(totalExpenses)})`;
   }
 }
 
@@ -198,7 +222,9 @@ export function renderSalesOverview() {
 }
 
 /* =========================================================
-   ADVANCED ANALYTICS — KPI cards (NET profit margin)
+   KPI CARDS
+   Net Profit Margin = Net Profit ÷ Sales Revenue
+   (restock NOT included — matches Net Profit card)
    ========================================================= */
 export function renderKPIs() {
   const salesArr = state.sales;
@@ -222,18 +248,19 @@ export function renderKPIs() {
     ? `${String(peakH).padStart(2,"0")}:00`
     : "–";
 
-  /* ---------- NET Profit Margin (after expenses) ---------- */
-  const grossProfit = _getGrossProfit();
+  /* Net Profit Margin = (Gross − Expenses) ÷ Sales  — NO restock */
+  const grossProfit   = _getGrossProfit();
   const totalExpenses = _getTotalExpenses();
-  const netProfit = roundMoney(grossProfit - totalExpenses);
-  const netMargin = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
+  const netProfit     = roundMoney(grossProfit - totalExpenses);
+  const netMargin     = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
 
   const marginEl = $("kpi-margin");
   if (marginEl) {
     marginEl.textContent = netMargin.toFixed(1) + "%";
     marginEl.classList.toggle("negative", netMargin < 0);
     marginEl.title =
-      `Net margin = (Gross ${fmtMoney(grossProfit)} − Expenses ${fmtMoney(totalExpenses)}) ÷ Sales ${fmtMoney(totalSales)}`;
+      `Net margin = (Gross ${fmtMoney(grossProfit)} − Expenses ${fmtMoney(totalExpenses)}) ` +
+      `÷ Sales ${fmtMoney(totalSales)}`;
   }
 }
 
@@ -272,12 +299,11 @@ export function renderTrendCharts() {
   const axisColor   = isDark ? "rgba(255,255,255,0.18)" : "rgba(15,23,42,0.18)";
   const tooltipBg   = isDark ? "#1E2D34" : "#0F172A";
 
-  const salesSeries = buildLast30DaySeries(s => Number(s.total) || 0);
+  const salesSeries  = buildLast30DaySeries(s => Number(s.total) || 0);
   const profitSeries = buildLast30DaySeries(s => {
     if (typeof s.profit === "number") return s.profit;
-    const it = state.inventory.find(i => i.id === s.itemId);
-    const cost = (it && typeof it.cost === "number") ? it.cost : (s.cost || 0);
-    return ((s.unitPrice || 0) - cost) * (s.quantity || 0);
+    const unitCost = Number(s.cost) || 0;
+    return ((Number(s.unitPrice) || 0) - unitCost) * (Number(s.quantity) || 0);
   });
 
   const barOpts = (label) => ({
@@ -330,7 +356,6 @@ export function renderTrendCharts() {
     }
   });
 
-  /* ---------- Sales ---------- */
   const sData = {
     labels: salesSeries.labels,
     datasets: [{
@@ -352,7 +377,6 @@ export function renderTrendCharts() {
     });
   } catch (e) { console.error("[bar chart sales]", e); }
 
-  /* ---------- Profit ---------- */
   const pData = {
     labels: profitSeries.labels,
     datasets: [{
@@ -384,12 +408,11 @@ export function renderTopProfitAndRevenue() {
   const byRevenue = {};
 
   state.sales.forEach(s => {
-    const profit = typeof s.profit === "number"
+    const profit = (typeof s.profit === "number")
       ? s.profit
       : (() => {
-          const it = state.inventory.find(i => i.id === s.itemId);
-          const cost = (it && typeof it.cost === "number") ? it.cost : (s.cost || 0);
-          return ((s.unitPrice || 0) - cost) * (s.quantity || 0);
+          const unitCost = Number(s.cost) || 0;
+          return ((Number(s.unitPrice) || 0) - unitCost) * (Number(s.quantity) || 0);
         })();
     const rev = Number(s.total) || 0;
     const invItem = state.inventory.find(i => i.id === s.itemId);
@@ -534,7 +557,7 @@ export function renderCharts(retries = 0) {
     const stockCount  = state.inventory.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
 
     const infoEl = $("sales-vs-cost-info");
-        if (infoEl) {
+    if (infoEl) {
       infoEl.innerHTML = `
         <div class="svc-split">
           <div class="svc-side">
@@ -608,7 +631,6 @@ export function renderCharts(retries = 0) {
           hoverOffset: 6
         }]
       },
-      
       plugins: [centerTextPlugin],
       options: {
         responsive: true,

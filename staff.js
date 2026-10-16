@@ -7,9 +7,6 @@ import { db } from "./firebase.js";
 import { state, isManager, isOwner, ROLES } from "./state.js";
 import { $, valOf, esc, safeRender, showToast, myWorkspace } from "./utils.js";
 
-/* =========================================================
-   HELPERS
-   ========================================================= */
 function genInviteCode() {
   return Math.random().toString(36).slice(2, 10).toUpperCase();
 }
@@ -34,10 +31,7 @@ async function sendInvite() {
   if (resEl) resEl.classList.add("hidden");
 
   if (!email) { if (errEl) errEl.textContent = "Enter an email."; return; }
-  if (!["cashier", "admin"].includes(role)) {
-    if (errEl) errEl.textContent = "Pick a valid role.";
-    return;
-  }
+  if (!["cashier", "admin"].includes(role)) { if (errEl) errEl.textContent = "Pick a valid role."; return; }
 
   const wsId = myWorkspace();
   if (!wsId) { if (errEl) errEl.textContent = "No workspace found."; return; }
@@ -52,9 +46,7 @@ async function sendInvite() {
       email,
       role,
       invitedBy: state.currentUser?.uid,
-      invitedByName:
-        state.currentUserData?.displayName ||
-        state.currentUser?.email || "",
+      invitedByName: state.currentUserData?.displayName || state.currentUser?.email || "",
       status: "pending",
       code,
       createdAt: serverTimestamp(),
@@ -103,7 +95,6 @@ function renderStaffList() {
     const isSelf = u.id === currentUid;
     const canRemove = isManager() && !isOwnerRow && !isSelf;
 
-    // Workspace owner gets a special badge
     const ownerBadge = (u.id === ownerUid)
       ? `<span class="role-badge owner" title="Workspace owner">👑 OWNER</span>`
       : "";
@@ -169,9 +160,6 @@ function renderInvitesList() {
   `).join("");
 }
 
-/* =========================================================
-   REMOVE STAFF
-   ========================================================= */
 window.removeStaff = async (uid) => {
   if (!isManager()) return;
   if (!confirm("Remove this staff member from your workspace?")) return;
@@ -183,7 +171,6 @@ window.removeStaff = async (uid) => {
       accountStatus: "pending"
     });
 
-    // Decrement staffCount
     const wsId = myWorkspace();
     if (wsId) {
       try {
@@ -202,9 +189,6 @@ window.removeStaff = async (uid) => {
   }
 };
 
-/* =========================================================
-   REVOKE INVITE
-   ========================================================= */
 window.revokeInvite = async (inviteId) => {
   if (!isManager()) return;
   if (!confirm("Revoke this invite?")) return;
@@ -220,11 +204,7 @@ window.revokeInvite = async (inviteId) => {
   }
 };
 
-/* =========================================================
-   RENDER PAGE
-   ========================================================= */
 export function renderStaffPage() {
-  // Super admin has their own admin panel — hide staff management
   if (state.currentUserData?.role === "superadmin") {
     const gate = $("staff-role-gate");
     if (gate) gate.classList.remove("hidden");
@@ -236,16 +216,12 @@ export function renderStaffPage() {
   renderStaffList();
   renderInvitesList();
 
-  // Show a note for cashiers (they shouldn't reach here, but just in case)
   const gate = $("staff-role-gate");
   if (gate) gate.classList.toggle("hidden", isManager());
   const body = $("staff-body");
   if (body) body.classList.toggle("hidden", !isManager());
 }
 
-/* =========================================================
-   INIT
-   ========================================================= */
 export function initStaff() {
   $("invite-staff-btn")?.addEventListener("click", () => {
     const modal = $("invite-modal");
@@ -271,16 +247,44 @@ export function initStaff() {
 }
 
 /* =========================================================
-   LISTENERS
+   ✅ FIXED: LISTENERS
+   ---------------------------------------------------------
+   Staff list works for owner/admin AND superadmin.
+   Superadmin's workspaceId = their own UID → they see only
+   themselves (correct in single-user model). If you want them
+   to see ALL users, that's what /page-admin is for.
    ========================================================= */
 export function startStaffListeners() {
   const wsId = myWorkspace();
-  if (!wsId) return;
 
-  // Staff (all users with the same workspaceId)
+  // Clear unsubscribers
   if (state.unsubscribers.workspaceStaff) {
     try { state.unsubscribers.workspaceStaff(); } catch {}
+    state.unsubscribers.workspaceStaff = null;
   }
+  if (state.unsubscribers.workspaceInvites) {
+    try { state.unsubscribers.workspaceInvites(); } catch {}
+    state.unsubscribers.workspaceInvites = null;
+  }
+
+  if (!wsId) {
+    // Show current user as the only "staff" so UI isn't stuck on loading
+    state.workspaceStaff = state.currentUser && state.currentUserData
+      ? [{
+          id: state.currentUser.uid,
+          email: state.currentUser.email,
+          role: state.currentUserData.role,
+          approved: true,
+          createdAt: state.currentUserData.createdAt
+        }]
+      : [];
+    state.workspaceInvites = [];
+    safeRender(renderStaffList);
+    safeRender(renderInvitesList);
+    return;
+  }
+
+  // Staff
   state.unsubscribers.workspaceStaff = onSnapshot(
     query(collection(db, "users"), where("workspaceId", "==", wsId)),
     (snap) => {
@@ -294,13 +298,22 @@ export function startStaffListeners() {
         });
       safeRender(renderStaffList);
     },
-    (err) => console.error("[Staff listener]", err.code, err.message)
+    (err) => {
+      console.error("[Staff listener]", err.code, err.message);
+      // Fallback: at least show the current user
+      state.workspaceStaff = state.currentUser && state.currentUserData
+        ? [{
+            id: state.currentUser.uid,
+            email: state.currentUser.email,
+            role: state.currentUserData.role,
+            approved: true
+          }]
+        : [];
+      safeRender(renderStaffList);
+    }
   );
 
-  // Pending invites
-  if (state.unsubscribers.workspaceInvites) {
-    try { state.unsubscribers.workspaceInvites(); } catch {}
-  }
+  // Invites
   state.unsubscribers.workspaceInvites = onSnapshot(
     query(
       collection(db, "workspace_invites"),
@@ -311,6 +324,10 @@ export function startStaffListeners() {
       state.workspaceInvites = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       safeRender(renderInvitesList);
     },
-    (err) => console.error("[Invites listener]", err.code, err.message)
+    (err) => {
+      console.error("[Invites listener]", err.code, err.message);
+      state.workspaceInvites = [];
+      safeRender(renderInvitesList);
+    }
   );
 }

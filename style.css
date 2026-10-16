@@ -6160,3 +6160,336 @@ input:focus, select:focus, textarea:focus {
   font-size: 0.9rem;
   flex-shrink: 0;
 }
+/* Restock cost color in stat-sub */
+.stat-sub-item.restock { color: #8B5CF6; }
+.stat-value.negative { color: #EF4444 !important; }
+/* =========================================================
+   MOVEMENTS BULK SELECTION
+   ========================================================= */
+.movement-row.is-selected {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+}
+
+.movement-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.movement-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--brand);
+}
+
+/* Add some breathing room to the movement rows for the checkbox */
+.movements-list .movement-row {
+  padding-left: 10px;
+}
+/* =========================================================
+   SALES CARD SELECTION (POS bulk-select)
+   ========================================================= */
+.sale-card.is-selected {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+}
+
+.sale-card-head .history-receipt-check {
+  margin-right: 6px;
+}
+
+.sale-card-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--brand);
+}
+
+/* =========================================================
+   MOBILE AUTH LOGIN FORM — compact
+   ========================================================= */
+@media (max-width: 600px) {
+  .auth-screen {
+    padding: 16px 12px;
+  }
+
+  .auth-card {
+    max-width: 100%;
+    padding: 20px 18px;
+    border-radius: 18px;
+  }
+
+  .auth-card .brand-mark {
+    margin-bottom: 12px;
+  }
+
+  .auth-card .brand-logo {
+    width: 68px;
+    height: 68px;
+  }
+
+  .auth-card .logo {
+    font-size: 1.05rem;
+  }
+
+  .subtitle-carousel {
+    margin-bottom: 14px;
+    font-size: 0.78rem;
+  }
+
+  .auth-tabs {
+    margin-bottom: 14px;
+  }
+
+  .auth-tabs .tab {
+    padding: 8px 14px;
+    font-size: 0.82rem;
+  }
+
+  .auth-form .field {
+    margin-bottom: 10px;
+  }
+
+  .auth-form .field input {
+    padding: 10px 12px;
+    font-size: 0.86rem;
+  }
+
+  .remember-row {
+    font-size: 0.78rem;
+    margin-bottom: 10px;
+  }
+
+  .auth-card #auth-submit {
+    padding: 11px 16px;
+    font-size: 0.88rem;
+  }
+
+  .social-divider {
+    margin: 12px 0;
+    font-size: 0.72rem;
+  }
+
+  .google-btn {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+
+  .social-links {
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .social-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Pending screen also smaller */
+  .pending-card .pending-icon {
+    font-size: 2.2rem;
+    margin-bottom: 6px;
+  }
+
+  .pending-card .logo {
+    font-size: 1.05rem;
+  }
+
+  .pending-card .pending-email {
+    font-size: 0.82rem;
+    margin: 10px 0;
+  }
+}
+/* =========================================================
+   POS PRODUCTS PAGINATION
+   ========================================================= */
+#sales-products-pagination {
+  margin-top: 14px;
+}
+
+#sales-products-pagination .page-info {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+/* =========================================================
+   POS PRODUCTS — mobile pagination polish
+   ========================================================= */
+@media (max-width: 640px) {
+  #sales-products-pagination {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 4px;
+  }
+
+  #sales-products-pagination .page-info {
+    text-align: center;
+    font-size: 0.72rem;
+  }
+
+  #sales-products-pagination .page-controls {
+    justify-content: center;
+    gap: 4px;
+  }
+
+  #sales-products-pagination .page-btn {
+    min-width: 30px;
+    height: 30px;
+    font-size: 0.78rem;
+    padding: 0 6px;
+  }
+}
+/* =========================================================
+   INVENTORY / HISTORY PAGINATION — mobile polish
+   ========================================================= */
+@media (max-width: 640px) {
+  #inventory-pagination,
+  #history-pagination,
+  #sales-products-pagination {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 4px;
+  }
+
+  #inventory-pagination .page-info,
+  #history-pagination .page-info,
+  #sales-products-pagination .page-info {
+    text-align: center;
+    font-size: 0.72rem;
+  }
+
+  #inventory-pagination .page-controls,
+  #history-pagination .page-controls,
+  #sales-products-pagination .page-controls {
+    justify-content: center;
+    gap: 4px;
+  }
+
+  #inventory-pagination .page-btn,
+  #history-pagination .page-btn,
+  #sales-products-pagination .page-btn {
+    min-width: 30px;
+    height: 30px;
+    font-size: 0.78rem;
+    padding: 0 6px;
+  }
+}
+/* =========================================================
+   INVENTORY ANALYTICS — compact layout
+   ========================================================= */
+.inv-analytics-grid.compact {
+  grid-template-columns: 1fr;
+}
+
+.inv-stat-card.wide {
+  width: 100%;
+}
+
+.inv-category-panel.full {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.inv-cat-share {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-left: 6px;
+  opacity: 0.8;
+}
+
+@media (max-width: 640px) {
+  .inv-analytics-panel {
+    padding: 12px;
+  }
+
+  .inv-stat-card.wide .inv-stat-value {
+    font-size: 1.6rem;
+  }
+
+  .inv-category-panel.full {
+    margin-top: 10px;
+  }
+}
+/* =========================================================
+   INSTALL MODAL — improved layout
+   ========================================================= */
+.install-guide-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--brand);
+  margin: 0 0 8px;
+  letter-spacing: 0.2px;
+}
+
+.install-guide ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.install-guide ol li {
+  margin-bottom: 6px;
+}
+
+.install-guide strong {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.install-guide-note {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+#install-native-btn {
+  font-size: 1rem;
+  padding: 14px 20px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  box-shadow: 0 6px 18px rgba(255, 153, 0, 0.28);
+}
+
+#install-native-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(255, 153, 0, 0.36);
+}
+
+/* Mobile — tighter */
+@media (max-width: 640px) {
+  .install-sheet {
+    padding: 20px 16px;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .install-sheet h3 {
+    font-size: 1.05rem;
+  }
+
+  .install-icon {
+    font-size: 2.4rem;
+    margin-bottom: 6px;
+  }
+
+  .install-guide ol {
+    font-size: 0.8rem;
+    padding-left: 20px;
+  }
+
+  .install-guide-title {
+    font-size: 0.84rem;
+  }
+}

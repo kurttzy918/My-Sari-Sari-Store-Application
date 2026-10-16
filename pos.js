@@ -16,6 +16,22 @@ import { renderCustomerPickerOptions } from "./customers.js";
 
 const { NEW_ARRIVAL_WINDOW_MS } = CONSTANTS;
 
+/* ✅ Bulk-selection state for recent sales */
+const selectedSaleReceipts = new Set();
+let salesPage = 1;
+const SALES_PAGE_SIZE = 6;
+
+/* ✅ Pagination state for POS products grid */
+let posProductsPage = 1;
+const POS_PRODUCTS_PAGE_SIZE_DESKTOP = 20;
+const POS_PRODUCTS_PAGE_SIZE_MOBILE  = 6;
+
+function getPosProductsPageSize() {
+  return window.matchMedia("(max-width: 640px)").matches
+    ? POS_PRODUCTS_PAGE_SIZE_MOBILE
+    : POS_PRODUCTS_PAGE_SIZE_DESKTOP;
+}
+
 /* =========================================================
    DISCOUNT HELPER — single source of truth
    ========================================================= */
@@ -407,6 +423,7 @@ export function renderPosProducts() {
   const grid = $("sales-products-grid"); if (!grid) return;
   const term = valOf($("sales-search")).toLowerCase().trim();
   const catFilter = valOf($("sales-cat-filter"));
+
   const filtered = state.inventory.filter(i => {
     if (catFilter && i.category !== catFilter) return false;
     if (!term) return true;
@@ -414,13 +431,27 @@ export function renderPosProducts() {
            (i.sku || "").toLowerCase().includes(term) ||
            (i.barcode || "").toLowerCase().includes(term);
   });
+
   if (!filtered.length) {
     grid.innerHTML = `<div class="empty-state"><p>📭 No products.</p></div>`;
+    const pag = $("sales-products-pagination");
+    if (pag) pag.innerHTML = "";
     stopPosMiniCarousels();
     return;
   }
+
+  /* ---------- Pagination (responsive page size) ---------- */
+  const pageSize = getPosProductsPageSize();
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (posProductsPage > totalPages) posProductsPage = totalPages;
+  if (posProductsPage < 1) posProductsPage = 1;
+  const start = (posProductsPage - 1) * pageSize;
+  const pageItems = filtered.slice(start, start + pageSize);
+
   const soldMap = getSoldMap();
-  grid.innerHTML = filtered.map(item => {
+
+  grid.innerHTML = pageItems.map(item => {
     const isOut = item.quantity === 0;
     const isLow = item.quantity > 0 && item.quantity <= (item.threshold ?? 5);
     const sold = soldMap[item.id] || 0;
@@ -462,10 +493,67 @@ export function renderPosProducts() {
       </div>
     `;
   }).join("");
+
   grid.querySelectorAll(".pos-card").forEach(card => {
     card.addEventListener("click", () => addToCart(card.dataset.id));
   });
+
   startPosMiniCarousels();
+
+  /* ---------- Pagination bar ---------- */
+  renderPosProductsPagination(total, posProductsPage, totalPages);
+}
+
+/* =========================================================
+   ✅ POS PRODUCTS PAGINATION
+   ========================================================= */
+function renderPosProductsPagination(total, currentPage, totalPages) {
+  const el = $("sales-products-pagination");
+  if (!el) return;
+
+  const pageSize = getPosProductsPageSize();
+  if (total <= pageSize) { el.innerHTML = ""; return; }
+
+  const from = (currentPage - 1) * pageSize + 1;
+  const to = Math.min(total, currentPage * pageSize);
+
+  const btn = (label, page, disabled, active = false) => `
+    <button type="button"
+            class="page-btn ${active ? "active" : ""}"
+            ${disabled ? "disabled" : ""}
+            data-page="${page}">${label}</button>`;
+
+  const pages = [];
+  const maxVisible = 5;
+  let startP = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let endP = Math.min(totalPages, startP + maxVisible - 1);
+  if (endP - startP + 1 < maxVisible) startP = Math.max(1, endP - maxVisible + 1);
+  for (let p = startP; p <= endP; p++) pages.push(p);
+
+  el.innerHTML = `
+    <div class="page-info">Showing <strong>${from}–${to}</strong> of <strong>${total}</strong> products</div>
+    <div class="page-controls">
+      ${btn("‹", currentPage - 1, currentPage <= 1)}
+      ${startP > 1 ? btn("1", 1, false, currentPage === 1) : ""}
+      ${startP > 2 ? `<span class="page-ellipsis">…</span>` : ""}
+      ${pages.map(p => btn(p, p, false, p === currentPage)).join("")}
+      ${endP < totalPages - 1 ? `<span class="page-ellipsis">…</span>` : ""}
+      ${endP < totalPages ? btn(totalPages, totalPages, false, currentPage === totalPages) : ""}
+      ${btn("›", currentPage + 1, currentPage >= totalPages)}
+    </div>
+  `;
+
+  el.querySelectorAll(".page-btn[data-page]").forEach(b => {
+    if (b.disabled) return;
+    b.addEventListener("click", () => {
+      const p = Number(b.dataset.page);
+      if (p !== currentPage && p >= 1 && p <= totalPages) {
+        posProductsPage = p;
+        renderPosProducts();
+        document.getElementById("sales-products-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  });
 }
 
 export function startPosMiniCarousels() {
@@ -827,11 +915,13 @@ export async function deleteSaleIds(saleIds, opts = {}) {
 }
 
 /* =========================================================
-   RENDER — Recent sales list (grouped by receipt, filterable)
+   RENDER — Recent sales (grouped, paginated, bulk-select)
    ========================================================= */
 export function renderSales() {
   const list = $("sales-list");
   if (!list) return;
+
+  /* ---------- Category filter (dynamic) ---------- */
   const catSel = $("recent-sales-cat");
   if (catSel) {
     const cats = new Set();
@@ -849,14 +939,18 @@ export function renderSales() {
 
   if (!state.sales.length) {
     list.innerHTML = `<div class="empty-state"><p>🛒 No sales recorded yet.</p></div>`;
+    const pag = $("sales-pagination");
+    if (pag) pag.innerHTML = "";
+    updateSalesBulkUI();
     return;
   }
 
   const term = valOf($("recent-sales-search")).toLowerCase().trim();
   const catFilter = valOf($("recent-sales-cat")).trim().toLowerCase();
 
+  /* ---------- Group sales by receipt ---------- */
   const groups = new Map();
-  state.sales.slice(0, 150).forEach(s => {
+  state.sales.forEach(s => {
     const key = s.receiptNum || ("LEGACY-" + s.id);
     if (!groups.has(key)) {
       groups.set(key, {
@@ -874,6 +968,8 @@ export function renderSales() {
   });
 
   let recent = [...groups.values()];
+
+  /* ---------- Filtering ---------- */
   if (term || catFilter) {
     recent = recent.filter(g => {
       const catOk = !catFilter || g.items.some(
@@ -893,19 +989,30 @@ export function renderSales() {
     });
   }
 
-  recent = recent.slice(0, 12);
-
   if (!recent.length) {
     list.innerHTML = `<div class="empty-state"><p>🔍 No recent sales match your filter.</p></div>`;
+    const pag = $("sales-pagination");
+    if (pag) pag.innerHTML = "";
+    updateSalesBulkUI();
     return;
   }
 
-  list.innerHTML = recent.map(g => {
+  /* ---------- Pagination ---------- */
+  const total = recent.length;
+  const totalPages = Math.max(1, Math.ceil(total / SALES_PAGE_SIZE));
+  if (salesPage > totalPages) salesPage = totalPages;
+  if (salesPage < 1) salesPage = 1;
+  const start = (salesPage - 1) * SALES_PAGE_SIZE;
+  const pageGroups = recent.slice(start, start + SALES_PAGE_SIZE);
+
+  /* ---------- Render rows ---------- */
+  list.innerHTML = pageGroups.map(g => {
     const qtyTotal = g.items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
     const itemCount = g.items.length;
     const timeStr = g.date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
     const dateStr = g.date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
     const isCredit = g.paymentMode === "credit";
+    const isSelected = selectedSaleReceipts.has(g.receiptNum);
 
     const itemsHTML = g.items.map(it => {
       const disc = Number(it.discountAmount) || 0;
@@ -927,8 +1034,14 @@ export function renderSales() {
     const idsJson = JSON.stringify(g.items.map(it => it.id)).replace(/'/g, "&#39;");
 
     return `
-      <article class="sale-card">
+      <article class="sale-card ${isSelected ? "is-selected" : ""}" data-receipt="${esc(g.receiptNum)}">
         <header class="sale-card-head">
+          <label class="history-receipt-check" title="Select receipt">
+            <input type="checkbox"
+                   class="sale-card-checkbox"
+                   data-receipt="${esc(g.receiptNum)}"
+                   ${isSelected ? "checked" : ""} />
+          </label>
           <div class="sale-card-meta">
             <span class="sale-receipt-num">${esc(g.receiptNum)}</span>
             <span class="sale-time">${esc(timeStr)} · ${esc(dateStr)}</span>
@@ -975,6 +1088,18 @@ export function renderSales() {
     `;
   }).join("");
 
+  /* ---------- Wire row checkboxes ---------- */
+  list.querySelectorAll(".sale-card-checkbox").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const rn = cb.dataset.receipt;
+      if (cb.checked) selectedSaleReceipts.add(rn);
+      else            selectedSaleReceipts.delete(rn);
+      cb.closest(".sale-card")?.classList.toggle("is-selected", cb.checked);
+      updateSalesBulkUI();
+    });
+  });
+
+  /* ---------- Wire row action buttons ---------- */
   list.querySelectorAll(".sale-btn-icon").forEach(btn => {
     btn.addEventListener("click", () => {
       const action = btn.dataset.action;
@@ -989,6 +1114,147 @@ export function renderSales() {
       }
     });
   });
+
+  /* ---------- Pagination bar ---------- */
+  renderSalesPagination(total, salesPage, totalPages);
+
+  /* ---------- Bulk bar ---------- */
+  wireSalesBulkUI();
+  updateSalesBulkUI();
+}
+
+/* =========================================================
+   ✅ SALES PAGINATION
+   ========================================================= */
+function renderSalesPagination(total, currentPage, totalPages) {
+  const el = $("sales-pagination");
+  if (!el) return;
+  if (total <= SALES_PAGE_SIZE) { el.innerHTML = ""; return; }
+
+  const from = (currentPage - 1) * SALES_PAGE_SIZE + 1;
+  const to = Math.min(total, currentPage * SALES_PAGE_SIZE);
+
+  const btn = (label, page, disabled, active = false) => `
+    <button type="button"
+            class="page-btn ${active ? "active" : ""}"
+            ${disabled ? "disabled" : ""}
+            data-page="${page}">${label}</button>`;
+
+  const pages = [];
+  const maxVisible = 5;
+  let startP = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let endP = Math.min(totalPages, startP + maxVisible - 1);
+  if (endP - startP + 1 < maxVisible) startP = Math.max(1, endP - maxVisible + 1);
+  for (let p = startP; p <= endP; p++) pages.push(p);
+
+  el.innerHTML = `
+    <div class="page-info">Showing <strong>${from}–${to}</strong> of <strong>${total}</strong></div>
+    <div class="page-controls">
+      ${btn("‹", currentPage - 1, currentPage <= 1)}
+      ${startP > 1 ? btn("1", 1, false, currentPage === 1) : ""}
+      ${startP > 2 ? `<span class="page-ellipsis">…</span>` : ""}
+      ${pages.map(p => btn(p, p, false, p === currentPage)).join("")}
+      ${endP < totalPages - 1 ? `<span class="page-ellipsis">…</span>` : ""}
+      ${endP < totalPages ? btn(totalPages, totalPages, false, currentPage === totalPages) : ""}
+      ${btn("›", currentPage + 1, currentPage >= totalPages)}
+    </div>
+  `;
+
+  el.querySelectorAll(".page-btn[data-page]").forEach(b => {
+    if (b.disabled) return;
+    b.addEventListener("click", () => {
+      const p = Number(b.dataset.page);
+      if (p !== currentPage && p >= 1 && p <= totalPages) {
+        salesPage = p;
+        renderSales();
+        document.getElementById("sales-list")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  });
+}
+
+/* =========================================================
+   ✅ SALES BULK-SELECTION UI
+   ========================================================= */
+function updateSalesBulkUI() {
+  const bar       = $("sales-bulk-bar");
+  const countEl   = $("sales-selected-count");
+  const delBtn    = $("sales-delete-selected");
+  const selectAll = $("sales-select-all");
+  const list      = $("sales-list");
+
+  const hasRows = !!(list && list.querySelector(".sale-card"));
+  if (bar) bar.classList.toggle("hidden", !hasRows);
+
+  if (countEl) countEl.textContent = `${selectedSaleReceipts.size} selected`;
+  if (delBtn)  delBtn.disabled = selectedSaleReceipts.size === 0;
+
+  const cbs = list ? [...list.querySelectorAll(".sale-card-checkbox")] : [];
+  if (selectAll) {
+    const allChecked = cbs.length > 0 && cbs.every(cb => cb.checked);
+    const anyChecked = cbs.some(cb => cb.checked);
+    selectAll.checked = allChecked;
+    selectAll.indeterminate = !allChecked && anyChecked;
+  }
+}
+
+function wireSalesBulkUI() {
+  const selectAll = $("sales-select-all");
+  const delBtn    = $("sales-delete-selected");
+
+  if (selectAll && !selectAll.dataset.wired) {
+    selectAll.dataset.wired = "1";
+    selectAll.addEventListener("change", (e) => {
+      const checked = e.target.checked;
+      const list = $("sales-list");
+      list?.querySelectorAll(".sale-card-checkbox").forEach(cb => {
+        cb.checked = checked;
+        const rn = cb.dataset.receipt;
+        if (checked) selectedSaleReceipts.add(rn);
+        else         selectedSaleReceipts.delete(rn);
+        cb.closest(".sale-card")?.classList.toggle("is-selected", checked);
+      });
+      updateSalesBulkUI();
+    });
+  }
+
+  if (delBtn && !delBtn.dataset.wired) {
+    delBtn.dataset.wired = "1";
+    delBtn.addEventListener("click", async () => {
+      if (!selectedSaleReceipts.size) return;
+
+      const groups = new Map();
+      state.sales.forEach(s => {
+        const key = s.receiptNum || ("LEGACY-" + s.id);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(s.id);
+      });
+
+      const ids = [];
+      selectedSaleReceipts.forEach(rn => {
+        const saleIds = groups.get(rn);
+        if (saleIds) ids.push(...saleIds);
+      });
+
+      if (!ids.length) { showToast("Nothing to delete"); return; }
+
+      const n = selectedSaleReceipts.size;
+      if (!confirm(
+        `Delete ${n} receipt${n !== 1 ? "s" : ""}?\n\n` +
+        `${ids.length} sale${ids.length !== 1 ? "s" : ""} will be removed ` +
+        `and quantities restored to inventory.`
+      )) return;
+
+      delBtn.disabled = true;
+      try {
+        await deleteSaleIds(ids, { skipConfirm: true, label: "Bulk delete" });
+        selectedSaleReceipts.clear();
+        updateSalesBulkUI();
+      } finally {
+        delBtn.disabled = false;
+      }
+    });
+  }
 }
 
 /* =========================================================
@@ -1006,8 +1272,14 @@ export function initPOS() {
   $("pos-clear-btn")?.addEventListener("click", () => { clearCart(); showToast("Cart cleared 🧹"); });
   $("pos-checkout")?.addEventListener("click", handleCheckout);
   $("pos-payment-mode")?.addEventListener("change", togglePaymentMode);
-  $("sales-search")?.addEventListener("input", debounce(renderPosProducts, 150));
-  $("sales-cat-filter")?.addEventListener("change", renderPosProducts);
+    $("sales-search")?.addEventListener("input", debounce(() => {
+    posProductsPage = 1;
+    renderPosProducts();
+  }, 150));
+  $("sales-cat-filter")?.addEventListener("change", () => {
+    posProductsPage = 1;
+    renderPosProducts();
+  });
   $("print-receipt-btn")?.addEventListener("click", () => window.print());
   $("close-receipt-btn")?.addEventListener("click", () => {
     $("receipt-modal")?.classList.add("hidden");
@@ -1021,11 +1293,32 @@ export function initPOS() {
     deleteReceiptGroup(group.saleIds, group.receiptNum);
   });
 
-  $("recent-sales-search")?.addEventListener("input", debounce(renderSales, 150));
-  $("recent-sales-cat")?.addEventListener("change", renderSales);
+    $("recent-sales-search")?.addEventListener("input", debounce(() => {
+    salesPage = 1;
+    renderSales();
+  }, 150));
+  $("recent-sales-cat")?.addEventListener("change", () => {
+    salesPage = 1;
+    renderSales();
+  });
 
   wireExternalScanner();
 }
+  /* ✅ Re-render POS grid when screen size crosses the mobile breakpoint */
+  let _posResizeTimer = null;
+  let _lastWasMobile = window.matchMedia("(max-width: 640px)").matches;
+  window.addEventListener("resize", () => {
+    clearTimeout(_posResizeTimer);
+    _posResizeTimer = setTimeout(() => {
+      const isMobile = window.matchMedia("(max-width: 640px)").matches;
+      if (isMobile !== _lastWasMobile) {
+        _lastWasMobile = isMobile;
+        posProductsPage = 1; // reset to page 1 when switching breakpoints
+        const salesHidden = $("page-sales")?.classList.contains("hidden");
+        if (!salesHidden) renderPosProducts();
+      }
+    }, 200);
+  });
 
 export function startSalesListener(onAfterSalesChange) {
   const wsId = myWorkspace(); if (!wsId) return;

@@ -12,12 +12,16 @@ import {
   playSuccessSound, playErrorSound,
   fmtInt, fmtMoney, downloadXLSX, getSoldMap
 } from "./utils.js";
-/* Shared helpers from pos.js so the Dashboard reuses the exact same cards */
 import {
   buildPosMiniSlides, getDiscountedPrice, startPosMiniCarousels
 } from "./pos.js";
 
 const { SCANNER_STATE, SCAN_BOX, SCAN_FPS, SCAN_VIDEO, SCAN_COOLDOWN_MS, CATEGORY_IMAGE_API } = CONSTANTS;
+
+/* ✅ Responsive inventory page size */
+function getInventoryPageSize() {
+  return window.matchMedia("(max-width: 640px)").matches ? 6 : 20;
+}
 
 /* =========================================================
    AUTO SKU
@@ -41,10 +45,6 @@ export function autoFillSku() {
 
 /* =========================================================
    EXTERNAL SCANNER — Add Item form (Barcode field)
-   ---------------------------------------------------------
-   Reads keyboard-wedge input from `#item-barcode-ext-input`,
-   debounces 250ms, and writes the code to `#item-barcode`.
-   Works with scanners that send OR don't send Enter.
    ========================================================= */
 const ITEM_EXT_MIN_LENGTH = 4;
 const ITEM_EXT_DEBOUNCE_MS = 250;
@@ -57,12 +57,10 @@ function focusItemExtScanner() {
   const inp = document.getElementById("item-barcode-ext-input");
   if (!inp) return;
 
-  // Don't steal focus while a modal is open
   if (document.querySelector(
     ".modal:not(.hidden), .scanner-modal:not(.hidden), .install-modal:not(.hidden), #camera-modal:not(.hidden)"
   )) return;
 
-  // Don't steal focus while user is typing elsewhere
   const active = document.activeElement;
   if (active && active !== inp && active !== document.body) {
     const tag = active.tagName;
@@ -83,7 +81,6 @@ function submitItemExtScan(code) {
 
   console.log("[item-ext-scanner] captured:", trimmed);
 
-  // Write the scanned code into the real barcode field
   const barcodeField = document.getElementById("item-barcode");
   if (barcodeField) {
     barcodeField.value = trimmed;
@@ -93,7 +90,6 @@ function submitItemExtScan(code) {
   playSuccessSound();
   showToast(`✓ Barcode set: ${trimmed}`);
 
-  // Clear the scanner buffer and refocus for the next scan
   const extInput = document.getElementById("item-barcode-ext-input");
   if (extInput) {
     extInput.value = "";
@@ -105,10 +101,7 @@ function submitItemExtScan(code) {
 
 function wireItemExternalScanner() {
   const inp = document.getElementById("item-barcode-ext-input");
-  if (!inp) {
-    // Not an error — the element may not exist if HTML hasn't been updated yet
-    return;
-  }
+  if (!inp) return;
 
   const dot = document.getElementById("item-ext-scan-dot");
 
@@ -120,7 +113,6 @@ function wireItemExternalScanner() {
   inp.addEventListener("blur", syncDot);
   syncDot();
 
-  /* PRIMARY: debounce 250ms after typing stops */
   inp.addEventListener("input", () => {
     clearTimeout(_itemExtTimer);
     const val = inp.value.trim();
@@ -134,7 +126,6 @@ function wireItemExternalScanner() {
     }, ITEM_EXT_DEBOUNCE_MS);
   });
 
-  /* SUFFIX: instant submit if scanner sends Enter/Tab */
   inp.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" && e.key !== "Tab") return;
     e.preventDefault();
@@ -145,12 +136,10 @@ function wireItemExternalScanner() {
     if (code) submitItemExtScan(code);
   });
 
-  /* Focus management — auto-focus when visiting Add Item page */
   document.querySelectorAll('.nav-btn[data-page="page-add"]').forEach(btn => {
     btn.addEventListener("click", () => setTimeout(focusItemExtScanner, 250));
   });
 
-  // Click empty space on Add Item page → refocus
   const page = document.getElementById("page-add");
   page?.addEventListener("click", (e) => {
     const t = e.target;
@@ -158,13 +147,11 @@ function wireItemExternalScanner() {
     focusItemExtScanner();
   });
 
-  // Refocus when window regains focus while Add Item is visible
   window.addEventListener("focus", () => {
     const addVisible = !document.getElementById("page-add")?.classList.contains("hidden");
     if (addVisible) setTimeout(focusItemExtScanner, 100);
   });
 
-  // Initial focus attempt
   setTimeout(focusItemExtScanner, 300);
 }
 
@@ -397,11 +384,13 @@ function wireItemForm() {
         batch.update(doc(db, "inventory", itemIdEl.value), data);
         if (prev && data.quantity !== prev.quantity) {
           const diff = data.quantity - prev.quantity;
-          batch.set(doc(collection(db, "movements")), movementDoc({
+          const mov = movementDoc({
             itemId: itemIdEl.value, itemName: data.name,
             type: diff > 0 ? "in" : "out",
             quantity: Math.abs(diff), reason: "adjustment", note: "Manual edit"
-          }));
+          });
+          if (diff > 0) mov.unitCost = Number(data.cost) || 0;
+          batch.set(doc(collection(db, "movements")), mov);
         }
         await settleWrite(batch.commit(), "Item");
         showToast("Item updated ✅");
@@ -409,10 +398,12 @@ function wireItemForm() {
         const newRef = doc(collection(db, "inventory"));
         batch.set(newRef, { ...data, createdAt: serverTimestamp() });
         if (data.quantity > 0) {
-          batch.set(doc(collection(db, "movements")), movementDoc({
+          const mov = movementDoc({
             itemId: newRef.id, itemName: data.name,
             type: "in", quantity: data.quantity, reason: "initial", note: "Item created"
-          }));
+          });
+          mov.unitCost = Number(data.cost) || 0;
+          batch.set(doc(collection(db, "movements")), mov);
         }
         await settleWrite(batch.commit(), "Item");
         showToast("Item added ✅");
@@ -465,9 +456,31 @@ export function editItem(id) {
 window.editItem = editItem;
 
 export async function deleteItem(id) {
-  if (!confirm("Delete this item permanently?")) return;
-  try { await deleteDoc(doc(db, "inventory", id)); showToast("Item deleted 🗑️"); }
-  catch (err) { showToast(`Failed: ${err.code || err.message} ❌`); }
+  const item = state.inventory.find(i => i.id === id);
+  if (!item) { showToast("Item not found ❌"); return; }
+
+  const itemName = item.name || "this item";
+  if (!confirm(`Delete "${itemName}" permanently?\n\nThis will also delete its stock movement history.`)) return;
+
+  try {
+    const batch = writeBatch(db);
+
+    // 1) Delete the inventory doc
+    batch.delete(doc(db, "inventory", id));
+
+    // 2) Delete all movements for this item (optional but recommended)
+    const itemMovements = state.movements.filter(m => m.itemId === id);
+    itemMovements.forEach(m => {
+      batch.delete(doc(db, "movements", m.id));
+    });
+
+    await settleWrite(batch.commit(), "Delete item");
+    playSuccessSound();
+    showToast(`Item deleted${itemMovements.length ? ` + ${itemMovements.length} movements` : ""} 🗑️`);
+  } catch (err) {
+    console.error("[deleteItem]", err);
+    showToast(`Failed: ${err.code || err.message} ❌`);
+  }
 }
 window.deleteItem = deleteItem;
 
@@ -499,10 +512,12 @@ function wireRestock() {
       batch.update(doc(db, "inventory", state.restockItemId), {
         quantity: increment(qty), updatedAt: serverTimestamp()
       });
-      batch.set(doc(collection(db, "movements")), movementDoc({
+      const mov = movementDoc({
         itemId: item.id, itemName: item.name,
         type: "in", quantity: qty, reason: "restock", note: ""
-      }));
+      });
+      mov.unitCost = Number(item.cost) || 0;
+      batch.set(doc(collection(db, "movements")), mov);
       await settleWrite(batch.commit(), "Restock");
       playSuccessSound();
       showToast(`Restocked +${fmtInt(qty)} ✅`);
@@ -546,7 +561,8 @@ export function renderInventory() {
     return;
   }
 
-  const pageSize = Math.max(5, state.invPageSize || 20);
+  /* ---------- Pagination (responsive page size) ---------- */
+  const pageSize = getInventoryPageSize();
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   if (state.invPage > totalPages) state.invPage = totalPages;
@@ -615,58 +631,39 @@ export function renderInventory() {
 }
 
 /* =========================================================
-   INVENTORY ANALYTICS DASHBOARD
+   INVENTORY ANALYTICS — Total Value + Per Category
    ========================================================= */
 export function renderInventoryAnalytics() {
-  if (!state.inventory || !state.inventory.length) return;
+  const inv = state.inventory || [];
+
+  /* ---- Empty state ---- */
+  if (!inv.length) {
+    if ($("inv-total-retail")) $("inv-total-retail").textContent = fmtMoney(0);
+    const catListEl = $("inv-category-breakdown");
+    if (catListEl) catListEl.innerHTML = `<div class="empty-state" style="padding:10px;"><p>No items yet.</p></div>`;
+    return;
+  }
 
   let totalRetail = 0;
-  let totalCost = 0;
-  let totalItems = 0;
-  let lowCount = 0;
-  let outCount = 0;
-  let expiringCount = 0;
-
   const catMap = {};
 
-  state.inventory.forEach(item => {
+  inv.forEach(item => {
     const qty = Number(item.quantity) || 0;
     const price = Number(item.price) || 0;
-    const cost = Number(item.cost) || 0;
-    const threshold = item.threshold ?? 5;
-
-    totalRetail += qty * price;
-    totalCost += qty * cost;
-    totalItems += qty;
-
-    if (qty <= 0) outCount++;
-    else if (qty <= threshold) lowCount++;
-
-    const exp = expiryStatus(item.expiry);
-    if (exp.level === "expiring" || exp.level === "expired") expiringCount++;
-
     const cat = item.category || "Uncategorized";
-    if (!catMap[cat]) catMap[cat] = 0;
-    catMap[cat] += qty * price;
+
+    const lineValue = qty * price;
+    totalRetail += lineValue;
+    catMap[cat] = (catMap[cat] || 0) + lineValue;
   });
 
-  const potentialProfit = totalRetail - totalCost;
-
+  /* ---- Total Stock Value ---- */
   if ($("inv-total-retail")) $("inv-total-retail").textContent = fmtMoney(totalRetail);
-  if ($("inv-total-cost")) $("inv-total-cost").textContent = fmtMoney(totalCost);
-  if ($("inv-total-potential-profit")) $("inv-total-potential-profit").textContent = fmtMoney(potentialProfit);
-  if ($("inv-total-items")) $("inv-total-items").textContent = fmtInt(totalItems);
 
-  if ($("inv-count-low")) $("inv-count-low").textContent = fmtInt(lowCount);
-  if ($("inv-count-out")) $("inv-count-out").textContent = fmtInt(outCount);
-  if ($("inv-count-expiring")) $("inv-count-expiring").textContent = fmtInt(expiringCount);
-
+  /* ---- Stock Value per Category ---- */
   const catListEl = $("inv-category-breakdown");
   if (catListEl) {
-    const entries = Object.entries(catMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-
+    const entries = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
     const maxVal = entries.length ? entries[0][1] : 1;
 
     if (!entries.length) {
@@ -674,11 +671,12 @@ export function renderInventoryAnalytics() {
     } else {
       catListEl.innerHTML = entries.map(([cat, val]) => {
         const pct = (val / maxVal) * 100;
+        const share = totalRetail > 0 ? ((val / totalRetail) * 100).toFixed(1) : "0.0";
         return `
           <div class="inv-cat-item">
             <div class="inv-cat-row">
               <span class="inv-cat-name" title="${esc(cat)}">${esc(cat)}</span>
-              <span class="inv-cat-value">${fmtMoney(val)}</span>
+              <span class="inv-cat-value">${fmtMoney(val)} <span class="inv-cat-share">${share}%</span></span>
             </div>
             <div class="inv-cat-bar"><div class="inv-cat-bar-fill" style="width:${pct}%"></div></div>
           </div>
@@ -688,7 +686,7 @@ export function renderInventoryAnalytics() {
   }
 }
 
-/* Pagination bar helper (shared with history) */
+/* Pagination bar helper */
 function renderPaginationBar(elId, total, currentPage, pageSize, onPageChange) {
   const el = $(elId);
   if (!el) return;
@@ -735,7 +733,7 @@ function renderPaginationBar(elId, total, currentPage, pageSize, onPageChange) {
 export { renderPaginationBar };
 
 /* =========================================================
-   DASHBOARD INVENTORY — POS-style cards + mini carousel
+   DASHBOARD INVENTORY
    ========================================================= */
 export function renderDashboardInventory() {
   const container = $("dashboard-inventory"); if (!container) return;
@@ -915,10 +913,19 @@ const REASON_LABEL = { initial: "Initial stock", restock: "Restock", sale: "Sale
 export function renderMovements() {
   const list = $("movements-list"); if (!list) return;
   const filtered = getFilteredMovements();
+
   if (!filtered.length) {
     list.innerHTML = `<div class="empty-state"><p>No matching stock movements.</p></div>`;
+    updateMovementsBulkUI();
     return;
   }
+
+  // Prune any selected IDs that no longer exist
+  const filteredIds = new Set(filtered.map(m => m.id));
+  [...selectedMovements].forEach(id => {
+    if (!filteredIds.has(id)) selectedMovements.delete(id);
+  });
+
   list.innerHTML = filtered.slice(0, 60).map(m => {
     const isIn = m.type === "in";
     const date = m.createdAt?.toDate?.().toLocaleString() ?? "—";
@@ -926,8 +933,16 @@ export function renderMovements() {
     const item = state.inventory.find(i => i.id === m.itemId) || {
       id: m.itemId, name: m.itemName, image: null
     };
+    const isSelected = selectedMovements.has(m.id);
+
     return `
-    <div class="movement-row">
+    <div class="movement-row ${isSelected ? "is-selected" : ""}" data-id="${m.id}">
+      <label class="movement-check" title="Select movement">
+        <input type="checkbox"
+               class="movement-checkbox"
+               data-id="${m.id}"
+               ${isSelected ? "checked" : ""} />
+      </label>
       ${productImageHTML(item, "sm")}
       <div class="movement-icon ${isIn ? "in" : "out"}">${isIn ? "⬇️" : "⬆️"}</div>
       <div class="movement-main">
@@ -942,7 +957,144 @@ export function renderMovements() {
       </div>
     </div>`;
   }).join("");
+
+  // Wire per-row checkboxes
+  list.querySelectorAll(".movement-checkbox").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const id = cb.dataset.id;
+      if (cb.checked) selectedMovements.add(id);
+      else            selectedMovements.delete(id);
+      cb.closest(".movement-row")?.classList.toggle("is-selected", cb.checked);
+      updateMovementsBulkUI();
+    });
+  });
+
+  wireMovementsBulkUI();
+  updateMovementsBulkUI();
 }
+/* =========================================================
+   ✅ MOVEMENTS BULK-SELECTION UI
+   ========================================================= */
+function updateMovementsBulkUI() {
+  const bar       = $("movements-bulk-bar");
+  const countEl   = $("movements-selected-count");
+  const delBtn    = $("movements-delete-selected");
+  const selectAll = $("movements-select-all");
+  const list      = $("movements-list");
+
+  const hasRows = !!(list && list.querySelector(".movement-row"));
+  if (bar) bar.classList.toggle("hidden", !hasRows);
+
+  if (countEl) countEl.textContent = `${selectedMovements.size} selected`;
+  if (delBtn)  delBtn.disabled = selectedMovements.size === 0;
+
+  const cbs = list ? [...list.querySelectorAll(".movement-checkbox")] : [];
+  if (selectAll) {
+    const allChecked = cbs.length > 0 && cbs.every(cb => cb.checked);
+    const anyChecked = cbs.some(cb => cb.checked);
+    selectAll.checked = allChecked;
+    selectAll.indeterminate = !allChecked && anyChecked;
+  }
+}
+
+function wireMovementsBulkUI() {
+  const selectAll = $("movements-select-all");
+  const delBtn    = $("movements-delete-selected");
+  const clearAll  = $("movements-clear-all");
+
+  if (selectAll && !selectAll.dataset.wired) {
+    selectAll.dataset.wired = "1";
+    selectAll.addEventListener("change", (e) => {
+      const checked = e.target.checked;
+      const list = $("movements-list");
+      list?.querySelectorAll(".movement-checkbox").forEach(cb => {
+        cb.checked = checked;
+        const id = cb.dataset.id;
+        if (checked) selectedMovements.add(id);
+        else         selectedMovements.delete(id);
+        cb.closest(".movement-row")?.classList.toggle("is-selected", checked);
+      });
+      updateMovementsBulkUI();
+    });
+  }
+
+  if (delBtn && !delBtn.dataset.wired) {
+    delBtn.dataset.wired = "1";
+    delBtn.addEventListener("click", async () => {
+      if (!selectedMovements.size) return;
+      const ids = [...selectedMovements];
+      const n = ids.length;
+      if (!confirm(
+        `Delete ${n} movement${n !== 1 ? "s" : ""}?\n\n` +
+        `⚠️ Stock quantities will NOT be reverted — this only removes the log entries.`
+      )) return;
+
+      delBtn.disabled = true;
+      let ok = 0, fail = 0;
+
+      try {
+        // Batch in chunks of 400 (Firestore limit is 500)
+        const BATCH_LIMIT = 400;
+        for (let i = 0; i < ids.length; i += BATCH_LIMIT) {
+          const chunk = ids.slice(i, i + BATCH_LIMIT);
+          const batch = writeBatch(db);
+          chunk.forEach(id => batch.delete(doc(db, "movements", id)));
+          await settleWrite(batch.commit(), "Delete movements");
+          ok += chunk.length;
+        }
+      } catch (err) {
+        console.error("[bulk delete movements]", err);
+        fail = ids.length - ok;
+      }
+
+      selectedMovements.clear();
+      updateMovementsBulkUI();
+      playSuccessSound();
+      showToast(`Deleted ${ok} movement${ok !== 1 ? "s" : ""}${fail ? ` · ${fail} failed` : ""} 🗑️`);
+      // Re-render happens automatically via onSnapshot
+    });
+  }
+
+  // "Clear All" — shows for empty selection to nuke the entire movement log
+  if (clearAll && !clearAll.dataset.wired) {
+    clearAll.dataset.wired = "1";
+    clearAll.addEventListener("click", async () => {
+      const count = state.movements.length;
+      if (!count) { showToast("No movements to clear"); return; }
+      if (!confirm(
+        `Delete ALL ${count} stock movements?\n\n` +
+        `⚠️ This resets Running Sales restock deduction to ₱0.\n` +
+        `⚠️ Stock quantities will NOT be reverted.`
+      )) return;
+
+      clearAll.disabled = true;
+      let ok = 0;
+      try {
+        const BATCH_LIMIT = 400;
+        const ids = state.movements.map(m => m.id);
+        for (let i = 0; i < ids.length; i += BATCH_LIMIT) {
+          const chunk = ids.slice(i, i + BATCH_LIMIT);
+          const batch = writeBatch(db);
+          chunk.forEach(id => batch.delete(doc(db, "movements", id)));
+          await settleWrite(batch.commit(), "Clear movements");
+          ok += chunk.length;
+        }
+        playSuccessSound();
+        showToast(`Cleared ${ok} movement${ok !== 1 ? "s" : ""} ✅`);
+      } catch (err) {
+        showToast(`Failed: ${err.code || err.message} ❌`);
+      } finally {
+        clearAll.disabled = false;
+      }
+    });
+  }
+}
+
+  // Toggle Clear All visibility
+  const clearAllBtn = $("movements-clear-all");
+  if (clearAllBtn) {
+    clearAllBtn.classList.toggle("hidden", !state.movements.length);
+  }
 
 export function viewMovement(id) {
   const m = state.movements.find(x => x.id === id);
@@ -1267,7 +1419,7 @@ function closeCategoryImagePicker() {
 }
 
 /* =========================================================
-   RENDER — Categories grid (modern + bulk select)
+   RENDER — Categories grid
    ========================================================= */
 function categoryThumbHTML(cat) {
   const src = cat.imageThumb || cat.image;
@@ -1782,13 +1934,35 @@ export function initInventory() {
   wireCategoryForm();
   wireImport();
   wireAutoSync();
-  wireItemExternalScanner();     // 👈 ADDED: external scanner for Barcode field
+  wireItemExternalScanner();
   ensureCategoriesBulkBar();
-  $("search-input")?.addEventListener("input", debounce(renderInventory, 150));
-  $("filter-category")?.addEventListener("change", renderInventory);
+  $("search-input")?.addEventListener("input", debounce(() => {
+    state.invPage = 1;
+    renderInventory();
+  }, 150));
+  $("filter-category")?.addEventListener("change", () => {
+    state.invPage = 1;
+    renderInventory();
+  });
   $("dash-search")?.addEventListener("input", debounce(renderDashboardInventory, 150));
   $("expiry-banner-btn")?.addEventListener("click", () => {
     $("expiring-list")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+
+  /* ✅ Re-render inventory list when crossing the mobile breakpoint */
+  let _invResizeTimer = null;
+  let _invLastWasMobile = window.matchMedia("(max-width: 640px)").matches;
+  window.addEventListener("resize", () => {
+    clearTimeout(_invResizeTimer);
+    _invResizeTimer = setTimeout(() => {
+      const isMobile = window.matchMedia("(max-width: 640px)").matches;
+      if (isMobile !== _invLastWasMobile) {
+        _invLastWasMobile = isMobile;
+        state.invPage = 1;
+        const addHidden = $("page-add")?.classList.contains("hidden");
+        if (!addHidden) renderInventory();
+      }
+    }, 200);
   });
 }
 
@@ -1947,18 +2121,6 @@ function normalizeImportRow(raw) {
     discount = Number(cappedPct.toFixed(4));
     discountPrice = Number((price * (1 - cappedPct / 100)).toFixed(2));
   }
-
-  try {
-    if (console?.debug) {
-      console.debug("[import] row:", name || "(no name)",
-        "| pctKey:", discPctKey,
-        "| rawPct:", JSON.stringify(rawPct),
-        "| pctVal:", pctVal,
-        "| price:", price,
-        "| discount:", discount,
-        "| discountPrice:", discountPrice);
-    }
-  } catch {}
 
   return {
     name, sku, barcode, category, quantity, cost, price,
@@ -2201,6 +2363,41 @@ export async function clearAllDiscounts() {
 window.clearAllDiscounts = clearAllDiscounts;
 
 /* =========================================================
+   ✅ MAINTENANCE: Clear all movements (orphan cleanup)
+   ---------------------------------------------------------
+   Useful when you've deleted items but their movements
+   still linger. Call from console:
+     window.clearAllMovements()
+   ========================================================= */
+export async function clearAllMovements() {
+  const wsId = myWorkspace();
+  if (!wsId) { showToast("Workspace not ready ❌"); return; }
+
+  const count = state.movements.length;
+  if (!count) { showToast("No movements to clear"); return; }
+
+  if (!confirm(`Delete ALL ${count} stock movements?\n\n⚠️ This will reset Running Sales restock deduction to ₱0.\n\n⚠️ This does NOT undo any stock quantities.`)) return;
+
+  const BATCH_LIMIT = 400;
+  let deleted = 0;
+  try {
+    for (let i = 0; i < state.movements.length; i += BATCH_LIMIT) {
+      const chunk = state.movements.slice(i, i + BATCH_LIMIT);
+      const batch = writeBatch(db);
+      chunk.forEach(m => batch.delete(doc(db, "movements", m.id)));
+      await settleWrite(batch.commit(), "Clear movements");
+      deleted += chunk.length;
+      showToast(`Deleted ${deleted}/${count} movements…`);
+    }
+    playSuccessSound();
+    showToast(`Cleared ${deleted} movements ✅`);
+  } catch (err) {
+    showToast(`Failed: ${err.code || err.message} ❌`);
+  }
+}
+window.clearAllMovements = clearAllMovements;
+
+/* =========================================================
    LISTENERS
    ========================================================= */
 export function startInventoryListeners(onAfterInventoryChange) {
@@ -2253,9 +2450,8 @@ export function startInventoryListeners(onAfterInventoryChange) {
 }
 
 /* =========================================================
-   AUTO-SYNC — File System Access API (per-workspace)
+   AUTO-SYNC — File System Access API
    ========================================================= */
-
 const AUTOSYNC_DB     = "kurt-autosync";
 const AUTOSYNC_STORE  = "handles";
 const AUTOSYNC_LEGACY = "inventory-file";

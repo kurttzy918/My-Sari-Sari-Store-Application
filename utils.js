@@ -92,18 +92,7 @@ export function applyTheme(theme) {
 }
 
 /* =========================================================
-   ✅ FIX #4: WORKSPACE RESOLVER
-   ---------------------------------------------------------
-   STRICTER than the old version:
-   - Only returns TRIMMED non-empty STRINGS (never "", null, 0, etc.)
-   - Never falls through on empty strings to a wrong fallback
-   - Returns null if nothing valid is available
-   ---------------------------------------------------------
-   Why this matters:
-   The old code used `||` which would silently fall through on ""
-   and return a workspaceId with untrimmed whitespace. Firestore
-   rules compare `data.workspaceId == myWorkspaceId()` — if either
-   side has trailing whitespace or is empty, the write is denied.
+   WORKSPACE RESOLVER
    ========================================================= */
 export const myWorkspace = () => {
   const ws = state.currentUserData?.workspaceId;
@@ -403,6 +392,39 @@ export function getMonthExpenses() {
 export function getTodayExpenses() {
   const d = new Date(); d.setHours(0, 0, 0, 0);
   return getTotalExpenses({ since: d.getTime(), until: d.getTime() + 86400000 });
+}
+
+/* =========================================================
+   ✅ RESTOCK COST — used ONLY for Running Sales
+   ---------------------------------------------------------
+   Running Sales = Sales − Restock Cost
+   (NOT used for Net Profit — that stays Gross − Expenses)
+   ========================================================= */
+export function getRestockCost(opts = {}) {
+  const { since, until } = opts;
+  let total = 0;
+
+  (state.movements || []).forEach(m => {
+    if (m.type !== "in") return;
+    if (m.reason !== "restock" && m.reason !== "initial") return;
+
+    const ms = m.createdAt?.toMillis?.() ?? 0;
+    if (since != null && ms < since) return;
+    if (until != null && ms >= until) return;
+
+    const qty = Number(m.quantity) || 0;
+    if (qty <= 0) return;
+
+    let unitCost = Number(m.unitCost);
+    if (!Number.isFinite(unitCost) || unitCost <= 0) {
+      const item = state.inventory.find(i => i.id === m.itemId);
+      unitCost = Number(item?.cost) || 0;
+    }
+
+    total += qty * unitCost;
+  });
+
+  return roundMoney(total);
 }
 
 /* =========================================================

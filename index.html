@@ -137,9 +137,9 @@
   <div class="auth-card pending-card">
     <div class="pending-icon">⏳</div>
     <div class="logo">Awaiting Approval</div>
-    <p class="subtitle static">
-      Your account was created successfully. A super admin needs to approve it
-      before you can access the app.
+    <p class="subtitle static" id="pending-message">
+  Your account was created successfully. A super admin needs to approve it
+  before you can access the app.
     </p>
     <div class="pending-email" id="pending-email">—</div>
     <button type="button" id="pending-logout" class="btn ghost block">Sign out</button>
@@ -369,15 +369,15 @@
   <!-- ============ STAT CARDS ============ -->
   <div class="stats-grid">
     <div class="stat-card">
-      <span class="stat-label">Running Sales</span>
+      <span class="stat-label">Running Sales(Benta)</span>
       <span class="stat-value" id="stat-sales">₱0.00</span>
     </div>
     <div class="stat-card">
-      <span class="stat-label">Stock Value</span>
+      <span class="stat-label">Stock Value(Puhunan)</span>
       <span class="stat-value" id="stat-value">₱0.00</span>
     </div>
     <div class="stat-card">
-      <span class="stat-label">Net Profit</span>
+      <span class="stat-label">Net Profit(Kabuuhang tubo)</span>
       <span class="stat-value" id="stat-profit">₱0.00</span>
     </div>
     <div class="stat-card">
@@ -591,7 +591,7 @@
   <h3 class="section-heading">⏰ Expiring Soon</h3>
   <div class="inventory-list compact" id="expiring-list"></div>
 
-  <!-- ============ MOVEMENTS ============ -->
+    <!-- ============ MOVEMENTS ============ -->
   <h3 class="section-heading">🔁 Recent Movements</h3>
   <div class="movement-toolbar compact">
     <input type="search" id="movement-search" placeholder="Search movements…" />
@@ -608,7 +608,19 @@
     </select>
     <button type="button" class="btn ghost sm" id="print-movements">🖨️ Print</button>
     <button type="button" class="btn ghost sm" id="export-movements">📊 Excel</button>
+    <button type="button" class="btn danger sm hidden" id="movements-clear-all">🗑️ Clear All</button>
   </div>
+
+  <!-- ✅ NEW: bulk-selection bar -->
+  <div id="movements-bulk-bar" class="history-bulk-bar hidden">
+    <label class="bulk-select-all">
+      <input type="checkbox" id="movements-select-all" />
+      <span>Select all</span>
+    </label>
+    <span id="movements-selected-count" class="bulk-count">0 selected</span>
+    <button type="button" class="btn danger sm" id="movements-delete-selected" disabled>🗑️ Delete selected</button>
+  </div>
+
   <div class="movements-list" id="movements-list"></div>
 </main>
 
@@ -647,7 +659,8 @@
 
   <button type="button" class="btn ghost" id="scan-sale-btn">📷 Scan</button>
 </div>
-        <div class="pos-grid" id="sales-products-grid"></div>
+      <div class="pos-grid" id="sales-products-grid"></div>
+        <div class="pagination-bar" id="sales-products-pagination"></div>
       </section>
 
       <!-- Cart -->
@@ -699,7 +712,7 @@
       </aside>
     </div>
 
-      <!-- Recent sales -->
+    <!-- Recent sales -->
     <div class="section-heading-row">
       <h3 class="section-heading">🧾 Recent Sales</h3>
       <div class="export-btns">
@@ -716,7 +729,18 @@
       </select>
     </div>
 
+    <!-- ✅ Bulk-selection bar -->
+    <div id="sales-bulk-bar" class="history-bulk-bar hidden">
+      <label class="bulk-select-all">
+        <input type="checkbox" id="sales-select-all" />
+        <span>Select all</span>
+      </label>
+      <span id="sales-selected-count" class="bulk-count">0 selected</span>
+      <button type="button" class="btn danger sm" id="sales-delete-selected" disabled>🗑️ Delete selected</button>
+    </div>
+
     <div class="sales-list" id="sales-list"></div>
+    <div class="pagination-bar" id="sales-pagination"></div>
 
     <!-- Category summary -->
     <h3 class="section-heading">📂 Sales by Category</h3>
@@ -766,64 +790,25 @@
   <main id="page-add" class="page hidden">
     <h2 class="page-title">➕ Add / Edit Item</h2>
 
-    <div class="inv-analytics-panel">
+        <div class="inv-analytics-panel">
       <div class="inv-analytics-header">
-        <h3 class="section-heading" style="margin:0;">📊 Inventory Overview</h3>
+        <h3 class="section-heading" style="margin:0;">💰 Stock Value Overview</h3>
         <span class="inv-analytics-badge">Live Data</span>
       </div>
-      <div class="inv-analytics-grid">
-        <div class="inv-stat-card value">
+
+      <div class="inv-analytics-grid compact">
+        <div class="inv-stat-card value wide">
           <div class="inv-stat-icon">💰</div>
           <div class="inv-stat-info">
             <span class="inv-stat-label">Total Stock Value (Retail)</span>
             <strong class="inv-stat-value" id="inv-total-retail">₱0.00</strong>
           </div>
         </div>
-        <div class="inv-stat-card cost">
-          <div class="inv-stat-icon">📉</div>
-          <div class="inv-stat-info">
-            <span class="inv-stat-label">Total Stock Cost</span>
-            <strong class="inv-stat-value" id="inv-total-cost">₱0.00</strong>
-          </div>
-        </div>
-        <div class="inv-stat-card profit">
-          <div class="inv-stat-icon">📈</div>
-          <div class="inv-stat-info">
-            <span class="inv-stat-label">Potential Profit</span>
-            <strong class="inv-stat-value" id="inv-total-potential-profit">₱0.00</strong>
-          </div>
-        </div>
-        <div class="inv-stat-card items">
-          <div class="inv-stat-icon">📦</div>
-          <div class="inv-stat-info">
-            <span class="inv-stat-label">Total Items on Shelf</span>
-            <strong class="inv-stat-value" id="inv-total-items">0</strong>
-          </div>
-        </div>
       </div>
-      <div class="inv-analytics-split">
-        <div class="inv-alerts-panel">
-          <h4 class="inv-alerts-title">⚠️ Stock Alerts</h4>
-          <div class="inv-alert-row" id="inv-alert-low-stock">
-            <span class="inv-alert-dot low"></span>
-            <span class="inv-alert-label">Low Stock Items</span>
-            <strong class="inv-alert-count" id="inv-count-low">0</strong>
-          </div>
-          <div class="inv-alert-row" id="inv-alert-out-stock">
-            <span class="inv-alert-dot out"></span>
-            <span class="inv-alert-label">Out of Stock</span>
-            <strong class="inv-alert-count" id="inv-count-out">0</strong>
-          </div>
-          <div class="inv-alert-row" id="inv-alert-expiring">
-            <span class="inv-alert-dot expiring"></span>
-            <span class="inv-alert-label">Expiring Soon</span>
-            <strong class="inv-alert-count" id="inv-count-expiring">0</strong>
-          </div>
-        </div>
-        <div class="inv-category-panel">
-          <h4 class="inv-alerts-title">🗂️ Top Categories by Value</h4>
-          <div class="inv-category-list" id="inv-category-breakdown"></div>
-        </div>
+
+      <div class="inv-category-panel full">
+        <h4 class="inv-alerts-title">🗂️ Stock Value by Category</h4>
+        <div class="inv-category-list" id="inv-category-breakdown"></div>
       </div>
     </div>
 
@@ -1749,45 +1734,63 @@
   </div>
 </div>
 
-<!-- Install modal (iOS instructions) -->
+<!-- Install modal -->
 <div id="install-modal" class="install-modal hidden">
   <div class="install-sheet">
     <button type="button" class="install-close" id="install-close" aria-label="Close">✕</button>
     <div class="install-icon">📲</div>
-    <h3>Install Kurt POS</h3>
-    <p>Add this app to your home screen for a faster, offline-ready experience.</p>
+    <h3 id="install-modal-title">Install Kurt POS</h3>
+    <p id="install-modal-sub">Add this app to your home screen for a faster, offline-ready experience.</p>
 
+    <!-- Native install button (Android / Chrome / Edge / Desktop) -->
     <div id="install-native-wrap" class="hidden">
-      <button type="button" class="btn primary block" id="install-native-btn">Install Now</button>
+      <button type="button" class="btn primary block" id="install-native-btn">
+        ⬇️ Install Kurt POS
+      </button>
     </div>
 
+    <!-- iOS-specific: Share icon visual + step-by-step -->
     <div class="install-instructions">
-      <div class="install-guide" data-platform="desktop">
-        <p><strong>On desktop (Chrome / Edge):</strong></p>
+      <div class="install-guide" data-platform="ios">
+        <p class="install-guide-title">📱 On iPhone / iPad (Safari):</p>
         <ol>
-          <li>Look for the <span class="step-icon">⊕ Install</span> icon at the right side of the address bar.</li>
-          <li>Click it, then confirm <span class="step-icon">Install</span>.</li>
-          <li>Or open the browser menu <span class="step-icon">⋮</span> → <span class="step-icon">Install Kurt POS</span>.</li>
+          <li>
+            Tap the
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 style="display:inline-block; vertical-align:-3px;">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+              <polyline points="16 6 12 2 8 6"/>
+              <line x1="12" y1="2" x2="12" y2="15"/>
+            </svg>
+            <strong>Share</strong> button at the bottom of Safari.
+          </li>
+          <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+          <li>Tap <strong>Add</strong> in the top-right corner.</li>
         </ol>
         <p class="install-guide-note">
-          💡 Don't see the install icon? Make sure you're on <strong>https://</strong> or <strong>localhost</strong>, and try refreshing once.
+          💡 iOS doesn't allow websites to install themselves automatically — this is Apple's policy.
         </p>
       </div>
 
-      <div class="install-guide" data-platform="ios">
-        <p><strong>On iPhone / iPad (Safari):</strong></p>
+      <div class="install-guide" data-platform="desktop">
+        <p class="install-guide-title">💻 On desktop (Chrome / Edge):</p>
         <ol>
-          <li>Tap the <span class="step-icon">Share</span> button at the bottom.</li>
-          <li>Scroll and tap <span class="step-icon">Add to Home Screen</span>.</li>
-          <li>Tap <span class="step-icon">Add</span>.</li>
+          <li>Look for the <strong>⊕ Install</strong> icon in the address bar.</li>
+          <li>Click it → confirm <strong>Install</strong>.</li>
+          <li>Or: menu <strong>⋮</strong> → <strong>Install Kurt POS</strong>.</li>
         </ol>
+        <p class="install-guide-note">
+          💡 Make sure you're on <strong>https://</strong> or <strong>localhost</strong>.
+        </p>
       </div>
 
       <div class="install-guide" data-platform="android">
-        <p><strong>On Android (Chrome):</strong></p>
+        <p class="install-guide-title">📱 On Android (Chrome / Edge):</p>
         <ol>
-          <li>Tap the <span class="step-icon">⋮</span> menu.</li>
-          <li>Tap <span class="step-icon">Install app</span> or <span class="step-icon">Add to Home screen</span>.</li>
+          <li>Tap the <strong>⋮</strong> menu (top-right).</li>
+          <li>Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
+          <li>Confirm by tapping <strong>Install</strong>.</li>
         </ol>
       </div>
     </div>
