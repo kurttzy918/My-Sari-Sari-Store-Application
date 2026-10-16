@@ -6493,3 +6493,35 @@ input:focus, select:focus, textarea:focus {
     font-size: 0.84rem;
   }
 }
+/* =========================================================
+   DASHBOARD LIVE INVENTORY PAGINATION
+   ========================================================= */
+#dashboard-inventory-pagination {
+  margin-top: 16px;
+  padding: 12px 4px;
+}
+
+@media (max-width: 640px) {
+  #dashboard-inventory-pagination {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 4px;
+  }
+
+  #dashboard-inventory-pagination .page-info {
+    text-align: center;
+    font-size: 0.72rem;
+  }
+
+  #dashboard-inventory-pagination .page-controls {
+    justify-content: center;
+    gap: 4px;
+  }
+
+  #dashboard-inventory-pagination .page-btn {
+    min-width: 30px;
+    height: 30px;
+    font-size: 0.78rem;
+    padding: 0 6px;
+  }
+}

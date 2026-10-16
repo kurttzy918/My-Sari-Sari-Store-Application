@@ -23,6 +23,13 @@ function getInventoryPageSize() {
   return window.matchMedia("(max-width: 640px)").matches ? 6 : 20;
 }
 
+/* ✅ Dashboard Live Inventory pagination state */
+let dashInvPage = 1;
+
+function getDashboardInventoryPageSize() {
+  return window.matchMedia("(max-width: 640px)").matches ? 6 : 8;
+}
+
 /* =========================================================
    AUTO SKU
    ========================================================= */
@@ -733,10 +740,11 @@ function renderPaginationBar(elId, total, currentPage, pageSize, onPageChange) {
 export { renderPaginationBar };
 
 /* =========================================================
-   DASHBOARD INVENTORY
+   DASHBOARD INVENTORY — paginated grid
    ========================================================= */
 export function renderDashboardInventory() {
-  const container = $("dashboard-inventory"); if (!container) return;
+  const container = $("dashboard-inventory");
+  if (!container) return;
 
   const term = valOf($("dash-search")).toLowerCase().trim();
   const filtered = state.inventory.filter(i => {
@@ -746,14 +754,26 @@ export function renderDashboardInventory() {
            (i.barcode || "").toLowerCase().includes(term);
   });
 
+  const pagEl = $("dashboard-inventory-pagination");
+
   if (!filtered.length) {
     container.innerHTML = `<div class="empty-state"><p>📭 No items yet — add one to get started.</p></div>`;
+    if (pagEl) pagEl.innerHTML = "";
     return;
   }
 
+  /* ---------- Pagination (responsive) ---------- */
+  const pageSize = getDashboardInventoryPageSize();
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (dashInvPage > totalPages) dashInvPage = totalPages;
+  if (dashInvPage < 1) dashInvPage = 1;
+  const start = (dashInvPage - 1) * pageSize;
+  const pageItems = filtered.slice(start, start + pageSize);
+
   const soldMap = getSoldMap();
 
-  container.innerHTML = filtered
+  container.innerHTML = pageItems
     .map(item => dashboardPosCardHTML(item, soldMap[item.id] || 0))
     .join("");
 
@@ -764,6 +784,59 @@ export function renderDashboardInventory() {
   });
 
   startPosMiniCarousels();
+
+  /* ---------- Pagination bar ---------- */
+  renderDashboardInventoryPagination(total, dashInvPage, totalPages, pageSize);
+}
+
+/* =========================================================
+   ✅ DASHBOARD LIVE INVENTORY PAGINATION
+   ========================================================= */
+function renderDashboardInventoryPagination(total, currentPage, totalPages, pageSize) {
+  const el = $("dashboard-inventory-pagination");
+  if (!el) return;
+  if (total <= pageSize) { el.innerHTML = ""; return; }
+
+  const from = (currentPage - 1) * pageSize + 1;
+  const to = Math.min(total, currentPage * pageSize);
+
+  const btn = (label, page, disabled, active = false) => `
+    <button type="button"
+            class="page-btn ${active ? "active" : ""}"
+            ${disabled ? "disabled" : ""}
+            data-page="${page}">${label}</button>`;
+
+  const pages = [];
+  const maxVisible = 5;
+  let startP = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let endP = Math.min(totalPages, startP + maxVisible - 1);
+  if (endP - startP + 1 < maxVisible) startP = Math.max(1, endP - maxVisible + 1);
+  for (let p = startP; p <= endP; p++) pages.push(p);
+
+  el.innerHTML = `
+    <div class="page-info">Showing <strong>${from}–${to}</strong> of <strong>${total}</strong> items</div>
+    <div class="page-controls">
+      ${btn("‹", currentPage - 1, currentPage <= 1)}
+      ${startP > 1 ? btn("1", 1, false, currentPage === 1) : ""}
+      ${startP > 2 ? `<span class="page-ellipsis">…</span>` : ""}
+      ${pages.map(p => btn(p, p, false, p === currentPage)).join("")}
+      ${endP < totalPages - 1 ? `<span class="page-ellipsis">…</span>` : ""}
+      ${endP < totalPages ? btn(totalPages, totalPages, false, currentPage === totalPages) : ""}
+      ${btn("›", currentPage + 1, currentPage >= totalPages)}
+    </div>
+  `;
+
+  el.querySelectorAll(".page-btn[data-page]").forEach(b => {
+    if (b.disabled) return;
+    b.addEventListener("click", () => {
+      const p = Number(b.dataset.page);
+      if (p !== currentPage && p >= 1 && p <= totalPages) {
+        dashInvPage = p;
+        renderDashboardInventory();
+        document.getElementById("dashboard-inventory")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  });
 }
 
 function dashboardPosCardHTML(item, sold) {
@@ -1944,12 +2017,15 @@ export function initInventory() {
     state.invPage = 1;
     renderInventory();
   });
-  $("dash-search")?.addEventListener("input", debounce(renderDashboardInventory, 150));
+    $("dash-search")?.addEventListener("input", debounce(() => {
+    dashInvPage = 1;
+    renderDashboardInventory();
+  }, 150));
   $("expiry-banner-btn")?.addEventListener("click", () => {
     $("expiring-list")?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 
-  /* ✅ Re-render inventory list when crossing the mobile breakpoint */
+   /* ✅ Re-render inventory list + dashboard grid when crossing breakpoint */
   let _invResizeTimer = null;
   let _invLastWasMobile = window.matchMedia("(max-width: 640px)").matches;
   window.addEventListener("resize", () => {
@@ -1959,8 +2035,13 @@ export function initInventory() {
       if (isMobile !== _invLastWasMobile) {
         _invLastWasMobile = isMobile;
         state.invPage = 1;
+        dashInvPage = 1;
+
         const addHidden = $("page-add")?.classList.contains("hidden");
         if (!addHidden) renderInventory();
+
+        const dashHidden = $("page-dashboard")?.classList.contains("hidden");
+        if (!dashHidden) renderDashboardInventory();
       }
     }, 200);
   });
