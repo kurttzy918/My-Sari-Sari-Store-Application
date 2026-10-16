@@ -5955,3 +5955,208 @@ input:focus, select:focus, textarea:focus {
   margin-left: 4px;
   opacity: 0.8;
 }
+/* ===== Stat card sub-line (Gross vs Expenses) ===== */
+.stat-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.2px;
+}
+.stat-sub-item { opacity: 0.85; }
+.stat-sub-item.expenses { color: #F59E0B; }
+.stat-sub-sep { opacity: 0.35; }
+
+/* Negative profit styling */
+.stat-value.negative,
+.kpi-value.negative,
+.svc-value.negative { color: #EF4444 !important; }
+
+/* Expenses row in chart info */
+.svc-value.expenses { color: #F59E0B; }
+
+/* Profit KPI card accent */
+.kpi-card.profit .kpi-value.negative { color: #EF4444; }
+/* =========================================================
+   NAVIGATION GROUPS (desktop + mobile)
+   ========================================================= */
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.nav-group + .nav-group {
+  margin-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  padding-top: 8px;
+}
+
+.nav-group-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.65;
+  padding: 4px 14px 2px;
+  user-select: none;
+}
+
+.nav-group-footer {
+  margin-top: auto;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  padding-top: 10px;
+}
+
+/* Mobile drawer: group labels slightly smaller */
+@media (max-width: 899px) {
+  .nav-group-label {
+    font-size: 0.58rem;
+    padding: 6px 16px 2px;
+  }
+  .nav-group + .nav-group { margin-top: 2px; }
+}
+
+/* =========================================================
+   WORKSPACE SWITCHER (dropdown inside sidebar)
+   ========================================================= */
+.workspace-switcher {
+  position: relative;
+  margin: 6px 10px 4px;
+  padding: 0;
+}
+
+.workspace-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  text-align: left;
+}
+.workspace-switcher-btn:hover {
+  background: color-mix(in srgb, var(--surface) 100%, transparent);
+  border-color: var(--brand);
+}
+.workspace-switcher-btn:active { transform: scale(0.985); }
+
+.ws-switcher-icon {
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+.ws-switcher-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.ws-switcher-label {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.75;
+}
+.ws-switcher-name {
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.ws-switcher-caret {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+.workspace-switcher.is-open .ws-switcher-caret { transform: rotate(180deg); }
+
+.workspace-switcher-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 10px;
+  right: 10px;
+  z-index: 80;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  padding: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  animation: wsMenuIn 0.16s ease-out;
+}
+@keyframes wsMenuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ws-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.ws-menu-item:hover { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+.ws-menu-item.is-active {
+  background: color-mix(in srgb, var(--brand) 18%, transparent);
+  font-weight: 800;
+}
+.ws-menu-item-icon {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--brand) 20%, transparent);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+.ws-menu-item-body { flex: 1; min-width: 0; }
+.ws-menu-item-name {
+  display: block;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 700;
+}
+.ws-menu-item-role {  
+  display: block;
+  font-size: 0.66rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+.ws-menu-item-check {
+  color: var(--brand);
+  font-weight: 900;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}

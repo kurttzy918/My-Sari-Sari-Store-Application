@@ -51,7 +51,7 @@ function _getNetProfit() {
 const selectedReceipts = new Set();
 
 /* =========================================================
-   STATS (stat cards) — now shows NET PROFIT
+   STATS (stat cards) — now shows NET PROFIT (after expenses)
    ========================================================= */
 export function updateStats() {
   const total = state.inventory.length;
@@ -59,8 +59,10 @@ export function updateStats() {
   const value = state.inventory.reduce((s, i) => s + (i.quantity * i.price || 0), 0);
   const runningSales = state.sales.reduce((s, x) => s + (Number(x.total) || 0), 0);
 
-  /* ---------- Profit = gross profit from sales only ---------- */
+  /* ---------- Profit calculations ---------- */
   const grossProfit = _getGrossProfit();
+  const totalExpenses = _getTotalExpenses();
+  const netProfit = roundMoney(grossProfit - totalExpenses);
 
   if ($("stat-total"))  $("stat-total").textContent = fmtInt(total);
   if ($("stat-low"))    $("stat-low").textContent = fmtInt(low);
@@ -68,13 +70,27 @@ export function updateStats() {
   if ($("stat-sales"))  $("stat-sales").textContent = fmtMoney(runningSales);
   if ($("stat-cats"))   $("stat-cats").textContent = fmtInt(state.categories.length);
 
+  /* ---------- Net Profit stat card with breakdown ---------- */
   const profitEl = $("stat-profit");
   if (profitEl) {
-    profitEl.textContent = fmtMoney(grossProfit);
+    profitEl.textContent = fmtMoney(netProfit);
+    profitEl.classList.toggle("negative", netProfit < 0);
+
     // Remove any leftover sub-line from a previous render
     const oldSub = profitEl.parentElement.querySelector(".stat-sub");
     if (oldSub) oldSub.remove();
-    profitEl.title = "Gross profit from sales";
+
+    // Add a small sub-line showing gross vs expenses
+    const sub = document.createElement("div");
+    sub.className = "stat-sub";
+    sub.innerHTML = `
+      <span class="stat-sub-item">Gross: ${fmtMoney(grossProfit)}</span>
+      <span class="stat-sub-sep">·</span>
+      <span class="stat-sub-item expenses">− Expenses: ${fmtMoney(totalExpenses)}</span>
+    `;
+    profitEl.parentElement.appendChild(sub);
+
+    profitEl.title = `Net Profit = Gross Profit (${fmtMoney(grossProfit)}) − Expenses (${fmtMoney(totalExpenses)})`;
   }
 }
 
@@ -182,7 +198,7 @@ export function renderSalesOverview() {
 }
 
 /* =========================================================
-   ADVANCED ANALYTICS — KPI cards (net profit margin)
+   ADVANCED ANALYTICS — KPI cards (NET profit margin)
    ========================================================= */
 export function renderKPIs() {
   const salesArr = state.sales;
@@ -206,14 +222,18 @@ export function renderKPIs() {
     ? `${String(peakH).padStart(2,"0")}:00`
     : "–";
 
-   /* ---------- Profit Margin — gross (sales only) ---------- */
+  /* ---------- NET Profit Margin (after expenses) ---------- */
   const grossProfit = _getGrossProfit();
-  const margin = totalSales > 0 ? (grossProfit / totalSales) * 100 : 0;
+  const totalExpenses = _getTotalExpenses();
+  const netProfit = roundMoney(grossProfit - totalExpenses);
+  const netMargin = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
 
   const marginEl = $("kpi-margin");
   if (marginEl) {
-    marginEl.textContent = margin.toFixed(1) + "%";
-    marginEl.title = "Gross profit margin from sales";
+    marginEl.textContent = netMargin.toFixed(1) + "%";
+    marginEl.classList.toggle("negative", netMargin < 0);
+    marginEl.title =
+      `Net margin = (Gross ${fmtMoney(grossProfit)} − Expenses ${fmtMoney(totalExpenses)}) ÷ Sales ${fmtMoney(totalSales)}`;
   }
 }
 
@@ -503,8 +523,10 @@ export function renderCharts(retries = 0) {
       const qty = Number(x.quantity) || 0;
       return s + (unitCost * qty);
     }, 0);
-    const totalProfit = totalSales - totalCost;
-    const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+    const grossProfit = totalSales - totalCost;
+    const totalExpenses = _getTotalExpenses();
+    const netProfit = roundMoney(grossProfit - totalExpenses);
+    const netMargin = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
 
     const stockValue  = state.inventory.reduce((s, i) => s + (i.quantity * i.price || 0), 0);
     const stockCost   = state.inventory.reduce((s, i) => s + (i.quantity * (i.cost || 0)), 0);
@@ -512,7 +534,7 @@ export function renderCharts(retries = 0) {
     const stockCount  = state.inventory.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
 
     const infoEl = $("sales-vs-cost-info");
-    if (infoEl) {
+        if (infoEl) {
       infoEl.innerHTML = `
         <div class="svc-split">
           <div class="svc-side">
@@ -526,13 +548,22 @@ export function renderCharts(retries = 0) {
               <strong class="svc-value cost">− ${fmtMoney(totalCost)}</strong>
             </div>
             <div class="svc-divider"></div>
-            <div class="svc-row highlight">
-              <span class="svc-label">Your Profit</span>
-              <strong class="svc-value profit">${fmtMoney(totalProfit)}</strong>
+            <div class="svc-row">
+              <span class="svc-label">Gross Profit</span>
+              <strong class="svc-value profit">${fmtMoney(grossProfit)}</strong>
             </div>
             <div class="svc-row">
-              <span class="svc-label">Profit margin</span>
-              <strong class="svc-value margin">${profitMargin.toFixed(1)}%</strong>
+              <span class="svc-label">Business Expenses</span>
+              <strong class="svc-value expenses">− ${fmtMoney(totalExpenses)}</strong>
+            </div>
+            <div class="svc-divider"></div>
+            <div class="svc-row highlight">
+              <span class="svc-label">Net Profit</span>
+              <strong class="svc-value ${netProfit < 0 ? 'negative' : 'profit'}">${fmtMoney(netProfit)}</strong>
+            </div>
+            <div class="svc-row">
+              <span class="svc-label">Net margin</span>
+              <strong class="svc-value margin">${netMargin.toFixed(1)}%</strong>
             </div>
           </div>
 
@@ -559,7 +590,7 @@ export function renderCharts(retries = 0) {
         </div>
 
         <div class="svc-note">
-          💡 These are the breakdown for Sales Vs Cost
+          💡 Net Profit = Gross Profit − Business Expenses
         </div>
       `;
     }
@@ -568,15 +599,16 @@ export function renderCharts(retries = 0) {
     state.salesVsCostChart = new Chart(svcCanvas, {
       type: "doughnut",
       data: {
-        labels: ["Cost of Sold Items", "Profit Earned"],
+        labels: ["Cost of Sold Items", "Business Expenses", "Net Profit"],
         datasets: [{
-          data: [Math.max(0, totalCost), Math.max(0, totalProfit)],
-          backgroundColor: ["#3B82F6", "#10B981"],
-          hoverBackgroundColor: ["#2563EB", "#059669"],
+          data: [Math.max(0, totalCost), Math.max(0, totalExpenses), Math.max(0, netProfit)],
+          backgroundColor: ["#3B82F6", "#F59E0B", "#10B981"],
+          hoverBackgroundColor: ["#2563EB", "#D97706", "#059669"],
           borderWidth: 0,
           hoverOffset: 6
         }]
       },
+      
       plugins: [centerTextPlugin],
       options: {
         responsive: true,

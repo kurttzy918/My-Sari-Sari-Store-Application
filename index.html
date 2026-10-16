@@ -212,8 +212,8 @@
     📡 Offline mode — changes will sync when you're back online.
   </div>
 
-  <!-- ========================================================
-       BOTTOM NAV / DESKTOP SIDEBAR
+    <!-- ========================================================
+       BOTTOM NAV / DESKTOP SIDEBAR — organized into groups
        ======================================================== -->
   <nav class="bottom-nav">
     <div class="sidebar-brand">
@@ -228,87 +228,129 @@
       </div>
     </div>
 
-    <button type="button" class="nav-btn active" data-page="page-dashboard">
-      <span class="nav-icon">📊</span><span>Dashboard</span>
-    </button>
-    <button type="button" class="nav-btn" data-page="page-sales">
-      <span class="nav-icon">🛒</span><span>Point of Sale</span>
-    </button>
-    <button type="button" class="nav-btn" data-page="page-history">
-      <span class="nav-icon">🧾</span><span>History</span>
-    </button>
-    <button type="button" class="nav-btn" data-page="page-add">
-      <span class="nav-icon">➕</span><span>Add Item</span>
-    </button>
-    <button type="button" class="nav-btn" data-page="page-categories">
-      <span class="nav-icon">🗂️</span><span>Categories</span>
-    </button>
-    <button type="button" class="nav-btn" data-page="page-customers">
-      <span class="nav-icon">👥</span><span>Utang Ledger</span>
-    </button>
+    <!-- ============ WORKSPACE SWITCHER (dropdown) ============ -->
+    <div id="workspace-switcher" class="workspace-switcher hidden">
+      <button type="button" class="workspace-switcher-btn" id="workspace-switcher-btn">
+        <span class="ws-switcher-icon">🏢</span>
+        <span class="ws-switcher-text">
+          <span class="ws-switcher-label">Workspace</span>
+          <span class="ws-switcher-name" id="ws-switcher-name">—</span>
+        </span>
+        <span class="ws-switcher-caret">▾</span>
+      </button>
+      <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
 
-    <!-- ⭐ STAFF — placed correctly INSIDE the sidebar, after Utang Ledger -->
-    <button type="button" class="nav-btn hidden" id="nav-staff" data-page="page-staff" aria-hidden="true">
-      <span class="nav-icon">👥</span><span>Staff</span>
-    </button>
+    <!-- ============ GROUP: OVERVIEW ============ -->
+    <div class="nav-group">
+      <div class="nav-group-label">Overview</div>
+      <button type="button" class="nav-btn active" data-page="page-dashboard">
+        <span class="nav-icon">📊</span><span>Dashboard</span>
+      </button>
+    </div>
 
-    <button type="button" class="nav-btn" data-page="page-labels">
-      <span class="nav-icon">🏷️</span><span>Labels</span>
-    </button>
-    <button type="button" class="nav-btn" data-page="page-gcash">
-      <span class="nav-icon-gcash"><img src="gcash.png" alt="GCash" /></span>
-      <span>GCash</span>
-    </button>
-    <button type="button" class="nav-btn" data-page="page-maya">
-      <span class="nav-icon-maya"><img src="Maya.jpg" alt="Pay Maya" /></span>
-      <span>Pay Maya</span>
-    </button>
-    <button type="button" class="nav-btn" data-page="page-eload">
-      <span class="nav-icon">📱</span><span>E-Load</span>
-    </button>
-    <button type="button" class="nav-btn" data-page="page-expenses">
-      <span class="nav-icon">💸</span><span>Expenses</span>
-    </button>
-    <button type="button" class="nav-btn hidden" id="nav-admin" data-page="page-admin">
-      <span class="nav-icon">🛡️</span><span>Admin</span>
-    </button>
+    <!-- ============ GROUP: SALES ============ -->
+    <div class="nav-group">
+      <div class="nav-group-label">Sales</div>
+      <button type="button" class="nav-btn" data-page="page-sales">
+        <span class="nav-icon">🛒</span><span>Point of Sale</span>
+      </button>
+      <button type="button" class="nav-btn" data-page="page-history">
+        <span class="nav-icon">🧾</span><span>History</span>
+      </button>
+    </div>
 
-    <button type="button" class="nav-btn nav-btn-terms" id="nav-terms" title="Terms & Conditions">
-      <span class="nav-icon">📄</span><span>Terms</span>
-    </button>
+    <!-- ============ GROUP: INVENTORY ============ -->
+    <div class="nav-group">
+      <div class="nav-group-label">Inventory</div>
+      <button type="button" class="nav-btn" data-page="page-add">
+        <span class="nav-icon">➕</span><span>Add Item</span>
+      </button>
+      <button type="button" class="nav-btn" data-page="page-categories">
+        <span class="nav-icon">🗂️</span><span>Categories</span>
+      </button>
+      <button type="button" class="nav-btn" data-page="page-labels">
+        <span class="nav-icon">🏷️</span><span>Labels</span>
+      </button>
+    </div>
 
-    <button type="button" id="nav-download-app" class="nav-btn nav-btn-download" title="Download / Install App">
-      <span class="nav-icon nav-icon-download" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="20" height="20"
-             fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-      </span>
-      <span id="nav-download-label">Download App</span>
-    </button>
+    <!-- ============ GROUP: MONEY ============ -->
+    <div class="nav-group">
+      <div class="nav-group-label">Money</div>
+      <button type="button" class="nav-btn" data-page="page-customers">
+        <span class="nav-icon">👥</span><span>Utang Ledger</span>
+      </button>
+      <button type="button" class="nav-btn" data-page="page-gcash">
+        <span class="nav-icon-gcash"><img src="gcash.png" alt="GCash" /></span>
+        <span>GCash</span>
+      </button>
+      <button type="button" class="nav-btn" data-page="page-maya">
+        <span class="nav-icon-maya"><img src="Maya.jpg" alt="Pay Maya" /></span>
+        <span>Pay Maya</span>
+      </button>
+      <button type="button" class="nav-btn" data-page="page-eload">
+        <span class="nav-icon">📱</span><span>E-Load</span>
+      </button>
+      <button type="button" class="nav-btn" data-page="page-expenses">
+        <span class="nav-icon">💸</span><span>Expenses</span>
+      </button>
+    </div>
 
-    <button type="button" id="nav-share-app" class="nav-btn nav-btn-share" title="Share Kurt POS with a friend">
-      <span class="nav-icon nav-icon-share" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="20" height="20"
-             fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="18" cy="5" r="3"/>
-          <circle cx="6" cy="12" r="3"/>
-          <circle cx="18" cy="19" r="3"/>
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-        </svg>
-      </span>
-      <span id="nav-share-label">Share App</span>
-    </button>
+    <!-- ============ GROUP: TEAM (owner/admin only) ============ -->
+    <div class="nav-group" id="nav-group-team">
+      <div class="nav-group-label">Team</div>
+      <button type="button" class="nav-btn hidden" id="nav-staff" data-page="page-staff" aria-hidden="true">
+        <span class="nav-icon">👥</span><span>Staff</span>
+      </button>
+    </div>
 
-    <button type="button" id="logout-btn-mobile" class="nav-btn nav-btn-logout" style="display:none"></button>
+    <!-- ============ GROUP: SYSTEM ============ -->
+    <div class="nav-group">
+      <div class="nav-group-label">System</div>
+      <button type="button" class="nav-btn hidden" id="nav-admin" data-page="page-admin">
+        <span class="nav-icon">🛡️</span><span>Super Admin</span>
+      </button>
+      <button type="button" class="nav-btn nav-btn-terms" id="nav-terms" title="Terms & Conditions">
+        <span class="nav-icon">📄</span><span>Terms</span>
+      </button>
+    </div>
+
+    <!-- ============ FOOTER ACTIONS ============ -->
+    <div class="nav-group nav-group-footer">
+      <button type="button" id="nav-download-app" class="nav-btn nav-btn-download" title="Download / Install App">
+        <span class="nav-icon nav-icon-download" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20"
+               fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </span>
+        <span id="nav-download-label">Download App</span>
+      </button>
+
+      <button type="button" id="nav-share-app" class="nav-btn nav-btn-share" title="Share Kurt POS with a friend">
+        <span class="nav-icon nav-icon-share" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20"
+               fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+        </span>
+        <span id="nav-share-label">Share App</span>
+      </button>
+
+      <button type="button" id="logout-btn-mobile" class="nav-btn nav-btn-logout" style="display:none"></button>
+    </div>
   </nav>
-  <div id="nav-backdrop" class="nav-backdrop"></div>
-
+  
   <!-- ========================================================
        PAGE — DASHBOARD
        ======================================================== -->
@@ -335,7 +377,7 @@
       <span class="stat-value" id="stat-value">₱0.00</span>
     </div>
     <div class="stat-card">
-      <span class="stat-label">Profit</span>
+      <span class="stat-label">Net Profit</span>
       <span class="stat-value" id="stat-profit">₱0.00</span>
     </div>
     <div class="stat-card">
@@ -406,7 +448,7 @@
       <span class="kpi-value" id="kpi-peak">–</span>
     </div>
     <div class="kpi-card profit">
-      <span class="kpi-label">Profit Margin</span>
+      <span class="kpi-label">Net Profit Margin</span>
       <span class="kpi-value" id="kpi-margin">0%</span>
     </div>
   </div>
