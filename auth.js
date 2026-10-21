@@ -119,25 +119,111 @@ export function startTextCarousel(containerSelector, itemSelector, intervalMs = 
 }
 
 /* =========================================================
-   AUTH MODE
+   AUTH MODE (login / signup)
    ========================================================= */
-function setAuthMode(isSignup) {
+  export function setAuthMode(isSignup) {
   state.isSignupMode = isSignup;
-  const authTabs = $("auth-tabs");
-  const tabLogin = $("tab-login"), tabSignup = $("tab-signup");
-  const authSubmit = $("auth-submit"), authError = $("auth-error");
-  if (authTabs) authTabs.classList.toggle("signup-mode", isSignup);
-  tabLogin?.classList.toggle("active", !isSignup);
-  tabSignup?.classList.toggle("active", isSignup);
-  if (authSubmit) authSubmit.textContent = isSignup ? "Create Account" : "Login";
+  
+  const authError = $("auth-error");
   if (authError) authError.textContent = "";
+
+  // Toggle the two panels
+  $("login-form-panel")?.classList.toggle("hidden", isSignup);
+  $("signup-panel")?.classList.toggle("hidden", !isSignup);
+
+  // Reset signup wizard to step 1 whenever we enter signup mode
+  if (isSignup) resetSignupWizard();
 
   const gtxt = $("google-btn-text");
   if (gtxt) gtxt.textContent = isSignup ? "Sign up with Google" : "Continue with Google";
 
-  const form = $("auth-form");
-  if (form) { form.style.animation = "none"; void form.offsetWidth; form.style.animation = ""; }
-  setTimeout(() => $("email")?.focus({ preventScroll: true }), 300);
+  setTimeout(() => {
+    if (isSignup) {
+      $("signup-store-name")?.focus({ preventScroll: true });
+    } else {
+      $("email")?.focus({ preventScroll: true });
+    }
+  }, 300);
+}
+
+/* =========================================================
+   SIGNUP WIZARD STATE
+   ========================================================= */
+const signupDraft = {
+  step: 1,
+  storeName: "",
+  email: "",
+  password: "",
+  businessType: ""
+};
+
+function resetSignupWizard() {
+  signupDraft.step = 1;
+  signupDraft.storeName = "";
+  signupDraft.email = "";
+  signupDraft.password = "";
+  signupDraft.businessType = "";
+  renderSignupStep();
+}
+
+function renderSignupStep() {
+  const total = 3;
+  const step = signupDraft.step;
+
+  // Update progress dots
+  document.querySelectorAll(".signup-step-dot").forEach(dot => {
+    const n = Number(dot.dataset.step);
+    dot.classList.toggle("active", n === step);
+    dot.classList.toggle("done", n < step);
+  });
+  const progressFill = $("signup-progress-fill");
+  if (progressFill) progressFill.style.width = `${(step / total) * 100}%`;
+
+  // Show only the current step
+  document.querySelectorAll(".signup-step").forEach(el => {
+    el.classList.toggle("hidden", Number(el.dataset.step) !== step);
+  });
+
+  // Clear error
+  const errEl = $("signup-error");
+  if (errEl) errEl.textContent = "";
+
+  // Prefill back fields if returning to a step
+  if (step === 1) {
+    if ($("signup-store-name")) $("signup-store-name").value = signupDraft.storeName;
+    if ($("signup-email")) $("signup-email").value = signupDraft.email;
+    if ($("signup-password")) $("signup-password").value = signupDraft.password;
+  }
+  if (step === 2 && $("signup-business-type")) {
+    $("signup-business-type").value = signupDraft.businessType;
+  }
+  if (step === 3) {
+    renderSignupSummary();
+  }
+
+  setTimeout(() => {
+    const focusEl = document.querySelector(`.signup-step[data-step="${step}"] input, .signup-step[data-step="${step}"] select`);
+    focusEl?.focus({ preventScroll: true });
+  }, 200);
+}
+
+function renderSignupSummary() {
+  const box = $("signup-summary");
+  if (!box) return;
+  box.innerHTML = `
+    <div class="signup-summary-row">
+      <span class="signup-summary-label">Store name</span>
+      <strong>${escHtml(signupDraft.storeName || "—")}</strong>
+    </div>
+    <div class="signup-summary-row">
+      <span class="signup-summary-label">Email</span>
+      <strong>${escHtml(signupDraft.email || "—")}</strong>
+    </div>
+    <div class="signup-summary-row">
+      <span class="signup-summary-label">Business type</span>
+      <strong>${escHtml(signupDraft.businessType || "—")}</strong>
+    </div>
+  `;
 }
 
 /* =========================================================
@@ -186,17 +272,20 @@ function friendlyAuthError(code) {
 /* =========================================================
    WORKSPACE BOOTSTRAP — IDEMPOTENT
    ========================================================= */
-async function createWorkspaceForOwner(user) {
+async function createWorkspaceForOwner(user, storeName = null, businessType = null) {
   const wsId = user.uid;
   const wsRef = doc(db, "workspaces", wsId);
 
-  const storeName =
+  const fallbackName =
     (user.displayName ? `${user.displayName}'s Store` :
      (user.email || "").split("@")[0] + "'s Store") || "My Store";
 
+  const finalName = storeName || fallbackName;
+
   await setDoc(wsRef, {
     id: wsId,
-    name: storeName,
+    name: finalName,
+    businessType: businessType || "sari-sari",
     ownerUid: user.uid,
     ownerEmail: (user.email || "").toLowerCase(),
     plan: "free",
@@ -206,7 +295,7 @@ async function createWorkspaceForOwner(user) {
     createdBy: user.uid
   }, { merge: true });
 
-  console.log("[workspace] created/updated:", wsId);
+  console.log("[workspace] created/updated:", wsId, finalName);
   return wsId;
 }
 
@@ -233,13 +322,11 @@ export async function acceptWorkspaceInvite(code) {
   const inviteDoc = snap.docs[0];
   const invite = inviteDoc.data();
 
-  // Optional email-match check
   const myEmail = (state.currentUser?.email || "").toLowerCase();
   if (invite.email && invite.email !== myEmail) {
     throw new Error(`This invite was sent to ${invite.email}`);
   }
 
-  // 1) Attach user to workspace
   await updateDoc(doc(db, "users", uid), {
     workspaceId: invite.workspaceId,
     role: invite.role || "cashier",
@@ -249,14 +336,12 @@ export async function acceptWorkspaceInvite(code) {
     invitedAt: serverTimestamp()
   });
 
-  // 2) Mark invite accepted
   await updateDoc(doc(db, "workspace_invites", inviteDoc.id), {
     status: "accepted",
     acceptedAt: serverTimestamp(),
     acceptedBy: uid
   });
 
-  // 3) Bump workspace staffCount
   try {
     const wsRef = doc(db, "workspaces", invite.workspaceId);
     const wsSnap = await getDoc(wsRef);
@@ -283,7 +368,7 @@ export function initAuthUI() {
   const authSubmit = $("auth-submit");
   const authError = $("auth-error");
 
-  /* ---------- Email / Password submit ---------- */
+  /* ---------- Login submit ---------- */
   authForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (authError) authError.textContent = "";
@@ -310,44 +395,7 @@ export function initAuthUI() {
         console.warn("[Auth] setPersistence failed:", persistErr);
       }
 
-      if (state.isSignupMode) {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        const isSuper = email === SUPER_ADMIN_EMAIL.toLowerCase();
-
-        let workspaceId;
-        let role;
-
-        if (isSuper) {
-          workspaceId = cred.user.uid;
-          role = "superadmin";
-        } else {
-          // New signup = new store owner → create their workspace
-          workspaceId = await createWorkspaceForOwner(cred.user);
-          role = "owner";
-        }
-
-        try {
-          await setDoc(doc(db, "users", cred.user.uid), {
-            email,
-            workspaceId,
-            role,
-            approved: true,
-            accountStatus: "active",
-            displayName: cred.user.displayName || null,
-            photoURL: cred.user.photoURL || null,
-            provider: "password",
-            createdAt: serverTimestamp()
-          });
-        } catch (profileErr) {
-          console.error("[Signup] profile write failed:", profileErr);
-          if (authError) {
-            authError.textContent =
-              "Account created, but profile setup failed. Check Firestore rules.";
-          }
-        }
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-      }
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
       console.error("[Auth] submit error:", err);
       if (authError) authError.textContent = friendlyAuthError(err.code);
@@ -355,6 +403,9 @@ export function initAuthUI() {
       if (authSubmit) authSubmit.disabled = false;
     }
   });
+
+  /* ---------- SIGNUP WIZARD ---------- */
+  wireSignupWizard();
 
   /* ---------- Google Sign-In / Sign-Up ---------- */
   const googleBtn = $("google-signin-btn");
@@ -403,8 +454,10 @@ export function initAuthUI() {
   });
 
   /* ---------- Logout ---------- */
-  $("logout-btn")?.addEventListener("click", () => signOut(auth));
-  $("pending-logout")?.addEventListener("click", () => signOut(auth));
+  const doLogout = () => signOut(auth);
+  $("logout-btn")?.addEventListener("click", doLogout);
+  $("logout-btn-mobile")?.addEventListener("click", doLogout);
+  $("pending-logout")?.addEventListener("click", doLogout);
 
   /* ---------- Join workspace modal ---------- */
   $("join-workspace-form")?.addEventListener("submit", async (e) => {
@@ -435,6 +488,148 @@ export function initAuthUI() {
 
   /* ---------- Sign out from join modal ---------- */
   $("join-workspace-logout")?.addEventListener("click", () => signOut(auth));
+}
+
+/* =========================================================
+   WIRE SIGNUP WIZARD
+   ========================================================= */
+function wireSignupWizard() {
+  resetSignupWizard();
+
+  const clearErrors = () => {
+    ["signup-error", "signup-error-2", "signup-error-3"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = "";
+    });
+  };
+
+  /* --- STEP 1 --- */
+  // Back to Login
+  $("signup-back-1")?.addEventListener("click", () => {
+    import("./auth.js").then(m => m.setAuthMode(false)); // Calls the toggle function
+  });
+
+  // Forward to Step 2
+  $("signup-next-1")?.addEventListener("click", () => {
+    clearErrors();
+    const storeName = valOf($("signup-store-name")).trim();
+    const email = valOf($("signup-email")).trim().toLowerCase();
+    const password = valOf($("signup-password"));
+
+    if (!storeName) { $("signup-error").textContent = "Enter your store name."; return; }
+    if (!email) { $("signup-error").textContent = "Enter your email address."; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      $("signup-error").textContent = "Enter a valid email address.";
+      return;
+    }
+    if (password.length < 6) {
+      $("signup-error").textContent = "Password must be at least 6 characters.";
+      return;
+    }
+
+    signupDraft.storeName = storeName;
+    signupDraft.email = email;
+    signupDraft.password = password;
+    signupDraft.step = 2;
+    renderSignupStep();
+  });
+
+  /* --- STEP 2 --- */
+  // Back to Step 1
+  $("signup-back-2")?.addEventListener("click", () => {
+    clearErrors();
+    signupDraft.step = 1;
+    renderSignupStep();
+  });
+
+  // Forward to Step 3
+  $("signup-next-2")?.addEventListener("click", () => {
+    clearErrors();
+    const type = valOf($("signup-business-type")).trim();
+    if (!type) { $("signup-error-2").textContent = "Select your business type."; return; }
+
+    signupDraft.businessType = type;
+    signupDraft.step = 3;
+    renderSignupStep();
+  });
+
+  /* --- STEP 3 --- */
+  // Back to Step 2
+  $("signup-back-3")?.addEventListener("click", () => {
+    clearErrors();
+    signupDraft.step = 2;
+    renderSignupStep();
+  });
+
+  // Submit Account Creation
+  $("signup-submit-btn")?.addEventListener("click", async () => {
+    clearErrors();
+    const btn = $("signup-submit-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "Creating account…"; }
+
+    const remember = getRememberMe();
+    saveRememberMe(remember);
+
+    try {
+      try {
+        await setPersistence(
+          auth,
+          remember ? browserLocalPersistence : browserSessionPersistence
+        );
+      } catch (persistErr) {
+        console.warn("[Auth] setPersistence (signup) failed:", persistErr);
+      }
+
+      const cred = await createUserWithEmailAndPassword(
+        auth, signupDraft.email, signupDraft.password
+      );
+
+      const isSuper = signupDraft.email === SUPER_ADMIN_EMAIL.toLowerCase();
+      let workspaceId;
+      let role;
+
+      if (isSuper) {
+        workspaceId = cred.user.uid;
+        role = "superadmin";
+      } else {
+        workspaceId = await createWorkspaceForOwner(
+          cred.user, signupDraft.storeName, signupDraft.businessType
+        );
+        role = "owner";
+      }
+
+      await setDoc(doc(db, "users", cred.user.uid), {
+        email: signupDraft.email,
+        workspaceId,
+        role,
+        storeName: signupDraft.storeName,
+        businessType: signupDraft.businessType,
+        approved: isSuper ? true : false,
+        accountStatus: isSuper ? "active" : "pending",
+        displayName: cred.user.displayName || null,
+        photoURL: cred.user.photoURL || null,
+        provider: "password",
+        createdAt: serverTimestamp(),
+        requestedAt: serverTimestamp()
+      });
+
+      try {
+        await setDoc(doc(db, "workspaces", workspaceId), {
+          name: signupDraft.storeName,
+          businessType: signupDraft.businessType,
+          status: "active"
+        }, { merge: true });
+      } catch {}
+
+      signupDraft.step = 4;
+      renderSignupStep();
+      renderSignupSummary();
+    } catch (err) {
+      console.error("[Signup] failed:", err);
+      if ($("signup-error-3")) $("signup-error-3").textContent = friendlyAuthError(err.code);
+      if (btn) { btn.disabled = false; btn.textContent = "Submit Request"; }
+    }
+  });
 }
 
 /* =========================================================
@@ -487,7 +682,6 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       const snap = await getDoc(userRef);
 
       if (!snap.exists()) {
-        // ---------- First-time profile creation ----------
         let workspaceId;
         let role;
 
@@ -503,17 +697,16 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
           email: (user.email || "").toLowerCase(),
           workspaceId,
           role,
-          approved: true,
-          accountStatus: "active",
+          approved: isSuper ? true : false,
+          accountStatus: isSuper ? "active" : "pending",
           displayName: user.displayName || null,
           photoURL: user.photoURL || null,
           provider: user.providerData?.[0]?.providerId || "password",
           createdAt: serverTimestamp()
         });
 
-        console.log("[Auth] created user doc:", user.uid, "role:", role, "status: active");
+        console.log("[Auth] created user doc:", user.uid, "role:", role);
       } else {
-        // ---------- Existing user doc — patch safe fields ----------
         const data = snap.data();
         const patch = {};
 
@@ -558,10 +751,28 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       state.currentUserData = docSnap.data();
       const ud = state.currentUserData;
 
-      /* ---- Single-user workspace mode: every authenticated account owns its private store. ---- */
-      const isActive = !!ud.workspaceId && !!ud.role;
+      /* ---- Not approved yet → pending screen ---- */
+      if (ud.approved !== true && ud.role !== "superadmin") {
+        authScreen?.classList.add("hidden");
+        appShell?.classList.add("hidden");
+        pendingScreen?.classList.remove("hidden");
 
-      /* ---- Profile missing its own workspace: show setup/recovery screen. ---- */
+        const pendingMsg = $("pending-message");
+        if (pendingMsg) {
+          pendingMsg.textContent = ud.storeName
+            ? `Your store "${ud.storeName}" is pending super admin approval. You'll be able to log in once approved.`
+            : "Your account was created successfully. A super admin needs to approve it before you can access the app.";
+        }
+
+        $("join-workspace-modal")?.classList.add("hidden");
+        stopAuthBgCarousel();
+        startAuthBgCarousel("pending-bg-slides");
+        onPending?.();
+        return;
+      }
+
+      /* ---- Profile missing its own workspace ---- */
+      const isActive = !!ud.workspaceId && !!ud.role;
       if (!isActive) {
         authScreen?.classList.add("hidden");
         appShell?.classList.add("hidden");
@@ -570,18 +781,6 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
         stopAuthBgCarousel();
         startAuthBgCarousel("pending-bg-slides");
         onPending?.();
-        return;
-      }
-
-      /* ---- Active but no workspace → show join modal ---- */
-      const hasWorkspace = !!ud.workspaceId && !!ud.role;
-
-      if (!hasWorkspace) {
-        authScreen?.classList.add("hidden");
-        appShell?.classList.add("hidden");
-        pendingScreen?.classList.add("hidden");
-        $("join-workspace-modal")?.classList.remove("hidden");
-        document.body.style.overflow = "hidden";
         return;
       }
 
@@ -628,4 +827,11 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       showToast(`Profile stream: ${err.code || err.message} ❌`);
     });
   });
+}
+
+/* util */
+function escHtml(s) {
+  return String(s ?? "").replace(/[<>&"']/g, c => ({
+    "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;"
+  }[c]));
 }

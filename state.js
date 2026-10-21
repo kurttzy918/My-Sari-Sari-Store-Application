@@ -3,6 +3,7 @@ export const state = {
   inventory: [],
   sales: [],
   categories: [],
+  announcements: [],
 
   // ── Admin / user management ──
   allUsers: null,
@@ -93,6 +94,7 @@ export const state = {
     lastScanTime: 0,
     scanHandling: false,
     matchFlashTimer: null
+    
   }
 };
 

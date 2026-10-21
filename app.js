@@ -41,6 +41,10 @@ import {
 import {
   initStaff, startStaffListeners, renderStaffPage
 } from "./staff.js";
+import {
+  initAnnouncements, startAnnouncementsListener,
+  renderAdminAnnouncements, flushPendingAnnouncements
+} from "./announcements.js";
 
 /* User count — Firestore aggregate query + handle */
 import {
@@ -211,10 +215,6 @@ export function updateTopbarRoleBadge() {
 
 /* =========================================================
    ROLE-BASED VISIBILITY
-   ---------------------------------------------------------
-   BUGFIX: superadmin was NOT included in roleIsOwnerOrAdmin,
-   so the Staff button stayed hidden for the platform owner.
-   Now the check explicitly includes superadmin.
    ========================================================= */
 export function applyRoleVisibility() {
   const role = state.currentUserData?.role || "user";
@@ -502,6 +502,7 @@ requestAnimationFrame(() => {
 
 startTextCarousel(".subtitle-carousel", ".carousel-text", 3000);
 startTextCarousel(".brand-tagline-carousel", ".brand-tagline", 3000);
+startTextCarousel(".auth-subtitle", ".carousel-text", 3500);
 
 (function waitForChartJs() {
   if (typeof Chart !== "undefined") { state.chartJsReady = true; safeRender(renderCharts); return; }
@@ -591,6 +592,8 @@ function wireNav() {
         safeRender(renderKPIs);
         safeRender(renderTopProfitAndRevenue);
         safeRender(renderCharts);
+        // ✅ Allow pending announcements to show when back on dashboard
+        setTimeout(() => flushPendingAnnouncements(), 400);
       }
       if (btn.dataset.page === "page-sales") {
         safeRender(renderPosProducts);
@@ -634,6 +637,9 @@ function wireNav() {
       if (btn.dataset.page === "page-staff") {
         safeRender(renderStaffPage);
       }
+      if (btn.dataset.page === "page-admin") {
+        safeRender(renderAdminAnnouncements);
+      }
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
   });
@@ -643,13 +649,16 @@ function wireNav() {
    MOBILE NAV DRAWER
    ========================================================= */
 function wireMobileNav() {
-  const toggle = $("nav-toggle");
-  const nav = document.querySelector(".bottom-nav");
+  const toggle   = $("mobile-nav-btn") || $("nav-toggle");
+  const nav      = document.querySelector(".bottom-nav");
   const backdrop = $("nav-backdrop");
-  if (!toggle || !nav) return;
+  if (!toggle || !nav) {
+    console.warn("[nav] mobile nav wiring skipped — missing toggle or .bottom-nav");
+    return;
+  }
 
   const isMobile = () => window.matchMedia("(max-width: 899px)").matches;
-  const isOpen = () => nav.classList.contains("open");
+  const isOpen   = () => nav.classList.contains("open");
 
   const openDrawer = () => {
     nav.classList.add("open");
@@ -668,9 +677,12 @@ function wireMobileNav() {
 
   window.closeMobileNav = closeDrawer;
 
-  toggle.addEventListener("click", () => {
+  toggle.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     isOpen() ? closeDrawer() : openDrawer();
   });
+
   backdrop?.addEventListener("click", closeDrawer);
 
   nav.querySelectorAll(".nav-btn").forEach(btn => {
@@ -690,6 +702,8 @@ function wireMobileNav() {
       if (!isMobile() && isOpen()) closeDrawer();
     }, 150);
   });
+
+  console.log("[nav] mobile drawer wired to", toggle.id);
 }
 
 /* =========================================================
@@ -769,6 +783,9 @@ function startAllListeners() {
   startEloadListeners(onAfter);
   startExpensesListeners(onAfter);
   startStaffListeners();
+
+  /* Announcements — live "What's New" feed for all users */
+  startAnnouncementsListener();
 }
 
 function stopAllListeners() {
@@ -947,7 +964,6 @@ window.toggleApproval = async (userId, approved) => {
   const { db } = await import("./firebase.js");
 
   try {
-    // Read the user first to know their current role + workspace
     const snap = await getDoc(doc(db, "users", userId));
     if (!snap.exists()) { showToast("User not found ❌"); return; }
     const u = snap.data();
@@ -957,12 +973,10 @@ window.toggleApproval = async (userId, approved) => {
       accountStatus: approved ? "active" : "pending"
     };
 
-    // ✅ If approving a legacy user with role "user", promote to "owner"
     if (approved && (!u.role || u.role === "user")) {
       patch.role = "owner";
     }
 
-    // ✅ Ensure they have a workspace so the sidebar has data to render
     const wsId = u.workspaceId || userId;
     if (approved && !u.workspaceId) {
       patch.workspaceId = wsId;
@@ -970,7 +984,6 @@ window.toggleApproval = async (userId, approved) => {
 
     await updateDoc(doc(db, "users", userId), patch);
 
-    // ✅ Backfill a workspace doc for legacy users
     if (approved && wsId) {
       await setDoc(doc(db, "workspaces", wsId), {
         id: wsId,
@@ -1105,15 +1118,23 @@ function runPostApprovalRenders() {
     safeRender(renderCharts);
     safeRender(renderInventoryAnalytics);
     safeRender(renderStaffPage);
+    safeRender(renderAdminAnnouncements);
+
+    // ✅ Always attempt the announcement popup after everything is mounted
+    setTimeout(() => flushPendingAnnouncements(), 1200);
+    setTimeout(() => flushPendingAnnouncements(), 3500); // retry in case listener was slow
   }, 200);
 }
 
 function onApproved(userData) {
   const shellVisible = !document.getElementById("app-shell")?.classList.contains("hidden");
   const alreadyRan   = !!state._postApprovalRan;
+
   if (shellVisible && alreadyRan) {
     applyRoleVisibility();
     updateTopbarRoleBadge();
+    // ✅ Still try to show pending announcements for a returning user
+    setTimeout(() => flushPendingAnnouncements(), 600);
     return;
   }
 
@@ -1169,6 +1190,8 @@ function onApproved(userData) {
         requestAnimationFrame(() => {
           document.querySelector('.nav-btn[data-page="page-dashboard"]')?.click();
         });
+        // ✅ Explicitly flush announcements after terms accepted
+        setTimeout(() => flushPendingAnnouncements(), 1500);
       },
       onDecline: async () => {
         const { signOut } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
@@ -1197,6 +1220,8 @@ function wireAllModals() {
     "gcash-payment-modal":    { cleanup: () => { /* nothing */ } },
     "install-modal":          { cleanup: null },
     "invite-modal":           { cleanup: () => {} },
+    "announcement-modal":     { cleanup: null },
+    "announcements-list-modal": { cleanup: null },
     "scanner-modal":          { cleanup: () => {
         import("./inventory.js").then(m => m.forceCloseScanner?.()).catch(() => {});
       }
@@ -1213,6 +1238,7 @@ function wireAllModals() {
     "install-close":         "install-modal",
     "install-later":         "install-modal",
     "invite-close":          "invite-modal",
+    "announcements-list-close": "announcements-list-modal",
     "scanner-close":         "scanner-modal"
   };
 
@@ -1232,7 +1258,7 @@ function wireAllModals() {
     const closeBtn = e.target.closest(
       "#restock-close, #close-receipt-btn, #movement-close, #movement-close-btn, " +
       "#cat-image-close, #customer-detail-close, #install-close, #install-later, #scanner-close, " +
-      "#invite-close, #install-banner-close, [data-close-modal]"
+      "#invite-close, #install-banner-close, #announcements-list-close, [data-close-modal]"
     );
     if (closeBtn) {
       e.preventDefault();
@@ -1267,6 +1293,8 @@ function wireAllModals() {
     if (e.key !== "Escape") return;
     const order = [
       "install-modal",
+      "announcement-modal",
+      "announcements-list-modal",
       "cat-image-modal",
       "customer-detail-modal",
       "payment-modal",
@@ -1423,6 +1451,7 @@ function boot() {
   initEload();
   initExpenses();
   initStaff();
+  initAnnouncements();
   wireNav();
   wireMobileNav();
   wireDashboardRefresh();
