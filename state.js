@@ -140,7 +140,7 @@ export const CONSTANTS = {
     "https://picsum.photos/seed/kurt-store-2/1920/1080",
     "https://picsum.photos/seed/kurt-store-3/1920/1080"
   ],
-  AUTH_BG_INTERVAL_MS: 4000,
+  AUTH_BG_INTERVAL_MS: 6000,
   FALLBACK_COLORS: ["#12544F", "#2FA38F", "#5FC2A6", "#0C3E3A", "#16665F", "#0F4945"],
   CATEGORY_PALETTE: ["#12544F", "#2FA38F", "#5FC2A6", "#0C3E3A", "#16665F", "#0F4945", "#E8B33A", "#D79A6A"],
   SCAN_COOLDOWN_MS: 1500,

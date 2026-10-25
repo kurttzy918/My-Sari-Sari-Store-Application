@@ -37,188 +37,237 @@
 <div id="toast" class="toast hidden"></div>
 
 <!-- ============================================================
-     AUTH SCREEN
+     AUTH SCREEN — Dark Violet Minimalist
      ============================================================ -->
 <div id="auth-screen" class="auth-screen">
-  <div class="auth-bg">
-    <div id="auth-bg-slides" class="auth-bg-slides"></div>
-    <div class="auth-bg-overlay"></div>
+  <div class="auth-violet-glow" aria-hidden="true">
+    <span class="violet-orb violet-orb-1"></span>
+    <span class="violet-orb violet-orb-2"></span>
+    <span class="violet-orb violet-orb-3"></span>
   </div>
 
-  <div class="auth-split-card">
-    
-    <!-- LEFT SIDE: Photo -->
-    <div class="auth-split-left">
-      <div class="auth-photo-wrapper">
-        <!-- Using your existing default background image. It will be tinted violet via CSS -->
-        <img src="thumbnail.png" alt="Store Background" class="auth-photo" />
+  <div class="auth-shell">
+    <!-- LEFT: Fading photo carousel -->
+    <aside class="auth-visual" aria-hidden="true">
+      <div class="auth-carousel" id="auth-bg-slides">
+        <!-- Slides injected by buildAuthBackground() -->
       </div>
-    </div>
 
-    <div class="auth-split-right">
-  
-  <div class="auth-brand-icon">
-    <img src="inv.png" alt="Kurt Inventory" id="brand-logo" />
-  </div>
+      <div class="auth-visual-overlay"></div>
 
-      <!-- LOGIN VIEW -->
-      <div id="login-form-panel">
-        <h2 class="auth-title">Welcome back</h2>
-        
-        <!-- NEW SUBTITLE CAROUSEL -->
-    <div class="auth-subtitle">
-      <span class="carousel-text active">Monitor Inventory in Real-Time</span>
-      <span class="carousel-text">Track · Automate · Optimize</span>
-      <span class="carousel-text">Smart Stock &amp; Sales</span>
-    </div>
+      <div class="auth-visual-content">
+        <div class="auth-visual-brand">
+          <img src="inv.png" alt="" class="auth-visual-logo" />
+          <span>Kurt POS</span>
+        </div>
 
+        <h2 class="auth-visual-headline">
+          Run your sari-sari store <span>smarter.</span>
+        </h2>
+        <p class="auth-visual-sub">
+          Inventory, POS, utang, GCash, Maya, E-Load, and analytics — all in one calm place.
+        </p>
 
-        <form id="auth-form">
-          <label class="auth-field">
-            <span>Email Address</span>
-            <input type="email" id="email" placeholder="Enter your email address" required />
-          </label>
+        <div class="auth-visual-badges">
+          <span class="auth-badge">📦 Live inventory</span>
+          <span class="auth-badge">💵 Offline POS</span>
+          <span class="auth-badge">📊 Smart reports</span>
+        </div>
+      </div>
 
-          <label class="auth-field">
-            <span>Password</span>
-            <input type="password" id="password" placeholder="Create your password" required />
-          </label>
+      <div class="auth-visual-footer">
+        <div class="auth-carousel-dots" id="auth-carousel-dots"></div>
+      </div>
+    </aside>
 
-          <div class="auth-remember">
-            <label>
-              <input type="checkbox" id="remember-me" checked />
-              <span>Remember me</span>
-            </label>
-            <button type="button" id="tab-signup" class="auth-link-btn">Create account</button>
+    <!-- RIGHT: Form -->
+    <section class="auth-panel">
+      <div class="auth-panel-inner">
+        <div class="auth-brand-row">
+          <img src="inv.png" alt="Kurt Inventory" class="auth-brand-logo" />
+          <div class="auth-brand-text">
+            <strong>Kurt POS</strong>
+            <span>Smart Stock &amp; Sales</span>
+          </div>
+        </div>
+
+        <!-- ============ LOGIN ============ -->
+        <div id="login-form-panel" class="auth-view">
+          <div class="auth-heading">
+            <h1>Welcome back</h1>
+            <p>Sign in to continue to your store.</p>
           </div>
 
-          <div id="auth-error" class="error-msg"></div>
+          <form id="auth-form" class="auth-form" novalidate>
+            <label class="auth-input-group">
+              <span>Email address</span>
+              <input type="email" id="email" placeholder="you@store.com"
+                     autocomplete="email" required />
+            </label>
 
-          <button type="submit" id="auth-submit" class="btn-auth-primary">Login</button>
-        </form>
+            <label class="auth-input-group">
+              <span>Password</span>
+              <input type="password" id="password" placeholder="Enter your password"
+                     autocomplete="current-password" required />
+            </label>
 
-        <div class="auth-divider"><span>Or</span></div>
+            <div class="auth-form-row">
+              <label class="auth-checkbox">
+                <input type="checkbox" id="remember-me" checked />
+                <span>Remember me</span>
+              </label>
+              <button type="button" id="tab-signup" class="auth-text-btn">
+                Create account
+              </button>
+            </div>
 
-        <button type="button" id="google-signin-btn" class="btn-auth-google">
-          <svg viewBox="0 0 48 48" width="18" height="18">
-            <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.6 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/>
-            <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-            <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.1-11.3-7.6l-6.5 5C9.6 39.6 16.2 44 24 44z"/>
-            <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.6l6.2 5.2C40.9 35.5 44 30.2 44 24c0-1.2-.1-2.3-.4-3.5z"/>
-          </svg>
-          <span id="google-btn-text">Create account with Google</span>
-        </button>
+            <div id="auth-error" class="auth-error" role="alert"></div>
+
+            <button type="submit" id="auth-submit" class="auth-primary-btn">
+              <span>Sign in</span>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+                   stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="13 6 19 12 13 18"/>
+              </svg>
+            </button>
+          </form>
+
+          <div class="auth-divider"><span>or</span></div>
+
+          <button type="button" id="google-signin-btn" class="auth-google-btn">
+            <svg viewBox="0 0 48 48" width="18" height="18">
+              <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.6 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/>
+              <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+              <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.1-11.3-7.6l-6.5 5C9.6 39.6 16.2 44 24 44z"/>
+              <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.6l6.2 5.2C40.9 35.5 44 30.2 44 24c0-1.2-.1-2.3-.4-3.5z"/>
+            </svg>
+            <span id="google-btn-text">Continue with Google</span>
+          </button>
+
+          <p class="auth-footnote">
+            Don't have an account?
+            <button type="button" id="tab-signup-inline" class="auth-text-btn">
+              Create one
+            </button>
+          </p>
+        </div>
+
+        <!-- ============ SIGNUP WIZARD ============ -->
+        <div id="signup-panel" class="auth-view hidden">
+          <div class="auth-heading">
+            <h1 id="signup-heading">Create your store</h1>
+            <p>Set up your workspace in 3 quick steps.</p>
+          </div>
+
+          <div class="signup-progress">
+            <div class="signup-progress-track">
+              <div class="signup-progress-fill" id="signup-progress-fill"></div>
+            </div>
+          </div>
+
+          <!-- STEP 1 -->
+          <div class="signup-step" data-step="1">
+            <label class="auth-input-group">
+              <span>Store name</span>
+              <input type="text" id="signup-store-name" placeholder="e.g. Aling Nena's Store" />
+            </label>
+            <label class="auth-input-group">
+              <span>Email address</span>
+              <input type="email" id="signup-email" placeholder="you@store.com" />
+            </label>
+            <label class="auth-input-group">
+              <span>Password</span>
+              <input type="password" id="signup-password" placeholder="At least 6 characters" />
+            </label>
+            <div id="signup-error" class="auth-error"></div>
+
+            <div class="auth-btn-row">
+              <button type="button" class="auth-secondary-btn" id="signup-back-1">Back</button>
+              <button type="button" class="auth-primary-btn" id="signup-next-1">
+                <span>Continue</span>
+              </button>
+            </div>
+
+            <p class="auth-footnote">
+              Already have an account?
+              <button type="button" id="tab-login" class="auth-text-btn">Sign in</button>
+            </p>
+          </div>
+
+          <!-- STEP 2 -->
+          <div class="signup-step hidden" data-step="2">
+            <label class="auth-input-group">
+              <span>Business type</span>
+              <select id="signup-business-type" class="auth-select">
+                <option value="">Select business type…</option>
+                <option value="sari-sari">Sari-Sari Store</option>
+                <option value="karinderya">Karinderya / Eatery</option>
+                <option value="pharmacy">Pharmacy</option>
+                <option value="minimart">Mini Mart</option>
+                <option value="bakery">Bakery</option>
+                <option value="hardware">Hardware Store</option>
+                <option value="waterstation">Water Station</option>
+                <option value="loadcenter">Load Center</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <div id="signup-error-2" class="auth-error"></div>
+
+            <div class="auth-btn-row">
+              <button type="button" class="auth-secondary-btn" id="signup-back-2">Back</button>
+              <button type="button" class="auth-primary-btn" id="signup-next-2">
+                <span>Continue</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP 3 -->
+          <div class="signup-step hidden" data-step="3">
+            <div class="signup-summary" id="signup-summary"></div>
+            <div class="signup-approval-note">
+              ⏳ <strong>Note:</strong> A super admin will review your account. You can log in once approved.
+            </div>
+            <div id="signup-error-3" class="auth-error"></div>
+
+            <div class="auth-btn-row">
+              <button type="button" class="auth-secondary-btn" id="signup-back-3">Back</button>
+              <button type="button" class="auth-primary-btn" id="signup-submit-btn">
+                <span>Submit request</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP 4 -->
+          <div class="signup-step hidden" data-step="4">
+            <div class="signup-success-icon">⏳</div>
+            <h3 class="signup-success-title">Waiting for approval</h3>
+            <p class="signup-success-text">
+              Your account is created. You'll be able to log in once the super admin approves your store.
+            </p>
+            <button type="button" class="auth-secondary-btn" id="signup-signout-btn">
+              Sign out
+            </button>
+          </div>
+        </div>
+
+        <div class="auth-social-footer">
+          <a href="#" class="auth-social-btn" aria-label="Facebook">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.5-3.91 3.78-3.91 1.1 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.44 2.91h-2.34V22c4.78-.76 8.43-4.92 8.43-9.94Z"/></svg>
+          </a>
+          <a href="#" class="auth-social-btn" aria-label="X">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z"/></svg>
+          </a>
+          <a href="#" class="auth-social-btn" aria-label="LinkedIn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+          </a>
+        </div>
       </div>
-
-      <!-- SIGNUP VIEW (Multi-step wizard) -->
-<div id="signup-panel" class="hidden">
-  <h2 class="auth-title" id="signup-heading">Create an account</h2>
-  
-  <div class="auth-subtitle">
-    <span class="carousel-text active">Join us and get started today.</span>
-    <span class="carousel-text">Upgrade your sari-sari store.</span>
-  </div>
-  
-  <!-- Progress Bar -->
-  <div class="signup-progress">
-    <div class="signup-progress-track">
-      <div class="signup-progress-fill" id="signup-progress-fill"></div>
-    </div>
-  </div>
-
-  <!-- Step 1 -->
-  <div class="signup-step" data-step="1">
-    <label class="auth-field">
-      <span>Store Name</span>
-      <input type="text" id="signup-store-name" placeholder="Kurt POS Store" />
-    </label>
-    <label class="auth-field">
-      <span>Email Address</span>
-      <input type="email" id="signup-email" placeholder="Enter your email address" />
-    </label>
-    <label class="auth-field">
-      <span>Password</span>
-      <input type="password" id="signup-password" placeholder="Create your password" />
-    </label>
-    <div id="signup-error" class="error-msg"></div>
-    
-    <div class="auth-btn-row">
-      <button type="button" class="btn-auth-secondary" id="signup-back-1">Back</button>
-      <button type="button" class="btn-auth-primary" id="signup-next-1">Continue</button>
-    </div>
-    
-    <p class="auth-bottom-text">
-      Already have an account? 
-      <button type="button" id="tab-login" class="auth-link-btn">Login</button>
-    </p>
-  </div>
-
-  <!-- Step 2 -->
-  <div class="signup-step hidden" data-step="2">
-    <label class="auth-field">
-      <span>Business Type</span>
-      <select id="signup-business-type" class="auth-select">
-        <option value="">Select business type…</option>
-        <option value="sari-sari">Sari-Sari Store</option>
-        <option value="karinderya">Karinderya / Eatery</option>
-        <option value="pharmacy">Pharmacy</option>
-        <option value="minimart">Mini Mart</option>
-        <option value="bakery">Bakery</option>
-        <option value="hardware">Hardware Store</option>
-        <option value="waterstation">Water Station</option>
-        <option value="loadcenter">Load Center</option>
-        <option value="other">Other</option>
-      </select>
-    </label>
-    <div id="signup-error-2" class="error-msg"></div>
-    
-    <div class="auth-btn-row">
-      <button type="button" class="btn-auth-secondary" id="signup-back-2">Back</button>
-      <button type="button" class="btn-auth-primary" id="signup-next-2">Continue</button>
-    </div>
-  </div>
-
-  <!-- Step 3 -->
-  <div class="signup-step hidden" data-step="3">
-    <div class="signup-summary" id="signup-summary"></div>
-    <div class="signup-approval-note">
-      ⏳ <strong>Note:</strong> A super admin will review your account. You can log in once approved.
-    </div>
-    <div id="signup-error-3" class="error-msg"></div>
-    
-    <div class="auth-btn-row">
-      <button type="button" class="btn-auth-secondary" id="signup-back-3">Back</button>
-      <button type="button" class="btn-auth-primary" id="signup-submit-btn">Submit Request</button>
-    </div>
-  </div>
-
-  <!-- Step 4 (Success/Pending) -->
-  <div class="signup-step hidden" data-step="4">
-    <div class="signup-success-icon">⏳</div>
-    <h3 style="text-align:center; color:#4C1D95;">Waiting for Approval</h3>
-    <p style="text-align:center; font-size:0.85rem; color:#6D28D9; margin-bottom:20px;">
-      Your account is created. You will be able to log in once the super admin approves your store.
-    </p>
-    <button type="button" class="btn-auth-primary" id="signup-signout-btn">Sign out</button>
+    </section>
   </div>
 </div>
 
-      <!-- Social Footer -->
-      <div class="auth-social-footer">
-        <a href="#" class="social-icon-mini" aria-label="Facebook">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.5-3.91 3.78-3.91 1.1 0 2.24.2 2.24.2v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.44 2.91h-2.34V22c4.78-.76 8.43-4.92 8.43-9.94Z"/></svg>
-        </a>
-        <a href="#" class="social-icon-mini" aria-label="X">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z"/></svg>
-        </a>
-        <a href="#" class="social-icon-mini" aria-label="LinkedIn">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
-        </a>
-      </div>
-
-    </div>
-  </div>
-</div>
 
 <!-- ============================================================
      APP SHELL

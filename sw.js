@@ -36,13 +36,20 @@ const SHELL_ASSETS = [
 /* ---------- INSTALL ---------- */
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) =>
-      Promise.all(
-        SHELL_ASSETS.map((url) =>
-          cache.add(new Request(url, { mode: "no-cors" })).catch(() => null)
+    caches.open(CACHE_VERSION).then((cache) => {
+      // Only cache local files to avoid CORS errors
+      const localAssets = SHELL_ASSETS.filter(url => 
+        !url.startsWith("http") || url.includes(self.location.hostname)
+      );
+      return Promise.all(
+        localAssets.map((url) =>
+          cache.add(new Request(url)).catch((err) => {
+            console.warn("SW: Failed to cache", url, err);
+            return null;
+          })
         )
-      )
-    )
+      );
+    })
   );
   self.skipWaiting();
 });

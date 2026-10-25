@@ -82,16 +82,53 @@ export function startAuthBgCarousel(containerId) {
   stopAuthBgCarousel();
   const container = document.getElementById(containerId);
   if (!container) return;
+
   const slides = container.querySelectorAll(".auth-bg-slide");
   if (slides.length <= 1) return;
+
   state.authBgIndex = 0;
-  state.authBgTimer = setInterval(() => {
+
+  // Build dot indicators if a dots container exists
+  const dotsWrap = document.getElementById("auth-carousel-dots");
+  if (dotsWrap) {
+    dotsWrap.innerHTML = "";
+    slides.forEach((_, i) => {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = "dot" + (i === 0 ? " active" : "");
+      dot.setAttribute("aria-label", `Show photo ${i + 1}`);
+      dot.addEventListener("click", () => {
+        goToSlide(i);
+        restartTimer();
+      });
+      dotsWrap.appendChild(dot);
+    });
+  }
+
+  function goToSlide(index) {
+    const cur = container.querySelectorAll(".auth-bg-slide");
+    cur.forEach((el, i) => el.classList.toggle("active", i === index));
+    state.authBgIndex = index;
+
+    if (dotsWrap) {
+      dotsWrap.querySelectorAll(".dot").forEach((d, i) =>
+        d.classList.toggle("active", i === index)
+      );
+    }
+  }
+
+  function nextSlide() {
     const cur = container.querySelectorAll(".auth-bg-slide");
     if (!cur.length) return;
-    if (cur[state.authBgIndex]) cur[state.authBgIndex].classList.remove("active");
-    state.authBgIndex = (state.authBgIndex + 1) % cur.length;
-    if (cur[state.authBgIndex]) cur[state.authBgIndex].classList.add("active");
-  }, CONSTANTS.AUTH_BG_INTERVAL_MS);
+    goToSlide((state.authBgIndex + 1) % cur.length);
+  }
+
+  function restartTimer() {
+    if (state.authBgTimer) clearInterval(state.authBgTimer);
+    state.authBgTimer = setInterval(nextSlide, CONSTANTS.AUTH_BG_INTERVAL_MS);
+  }
+
+  restartTimer();
 }
 
 export function stopAuthBgCarousel() {
