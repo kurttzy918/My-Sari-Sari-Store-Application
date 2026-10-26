@@ -20,8 +20,7 @@ const { SUPER_ADMIN_EMAIL } = CONSTANTS;
    ========================================================= */
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
-  prompt: "select_account",
-  login_hint: "",
+  prompt: "select_account"
 });
 
 /* =========================================================
@@ -34,9 +33,11 @@ function getRememberMe() {
   if (el) return !!el.checked;
   return localStorage.getItem(REMEMBER_KEY) !== "false";
 }
+
 function saveRememberMe(v) {
   try { localStorage.setItem(REMEMBER_KEY, String(!!v)); } catch {}
 }
+
 function restoreRememberMeUI() {
   const el = $("remember-me");
   if (!el) return;
@@ -44,91 +45,15 @@ function restoreRememberMeUI() {
 }
 
 /* =========================================================
-   AUTH BACKGROUND IMAGES
+   CAROUSELS (removed from the lamp design; kept as no-ops
+   so existing imports and calls keep working)
    ========================================================= */
-function getConfiguredAuthBgImages() {
-  try {
-    const raw = localStorage.getItem("authBgImages");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed.map(String).filter(Boolean);
-    }
-  } catch (e) { console.warn("[auth-bg] bad localStorage value:", e); }
-  return CONSTANTS.DEFAULT_AUTH_BG_IMAGES.slice();
-}
-
 export function buildAuthBackground(containerId) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  const urls = getConfiguredAuthBgImages();
-  container.innerHTML = urls.map((url, i) => `
-    <div class="auth-bg-slide ${i === 0 ? "active" : ""}">
-      <img src="${url}" alt="" loading="eager"
-           onerror="this.closest('.auth-bg-slide').classList.add('broken'); this.remove();" />
-    </div>`).join("");
-  setTimeout(() => {
-    const slides = container.querySelectorAll(".auth-bg-slide");
-    const working = [...slides].filter(s => !s.classList.contains("broken"));
-    if (!working.length) {
-      container.innerHTML = CONSTANTS.FALLBACK_AUTH_BG_IMAGES.map((url, i) => `
-        <div class="auth-bg-slide ${i === 0 ? "active" : ""}">
-          <img src="${url}" alt="" loading="eager" />
-        </div>`).join("");
-    }
-  }, 2500);
+  // carousel removed
 }
 
 export function startAuthBgCarousel(containerId) {
-  stopAuthBgCarousel();
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  const slides = container.querySelectorAll(".auth-bg-slide");
-  if (slides.length <= 1) return;
-
-  state.authBgIndex = 0;
-
-  // Build dot indicators if a dots container exists
-  const dotsWrap = document.getElementById("auth-carousel-dots");
-  if (dotsWrap) {
-    dotsWrap.innerHTML = "";
-    slides.forEach((_, i) => {
-      const dot = document.createElement("button");
-      dot.type = "button";
-      dot.className = "dot" + (i === 0 ? " active" : "");
-      dot.setAttribute("aria-label", `Show photo ${i + 1}`);
-      dot.addEventListener("click", () => {
-        goToSlide(i);
-        restartTimer();
-      });
-      dotsWrap.appendChild(dot);
-    });
-  }
-
-  function goToSlide(index) {
-    const cur = container.querySelectorAll(".auth-bg-slide");
-    cur.forEach((el, i) => el.classList.toggle("active", i === index));
-    state.authBgIndex = index;
-
-    if (dotsWrap) {
-      dotsWrap.querySelectorAll(".dot").forEach((d, i) =>
-        d.classList.toggle("active", i === index)
-      );
-    }
-  }
-
-  function nextSlide() {
-    const cur = container.querySelectorAll(".auth-bg-slide");
-    if (!cur.length) return;
-    goToSlide((state.authBgIndex + 1) % cur.length);
-  }
-
-  function restartTimer() {
-    if (state.authBgTimer) clearInterval(state.authBgTimer);
-    state.authBgTimer = setInterval(nextSlide, CONSTANTS.AUTH_BG_INTERVAL_MS);
-  }
-
-  restartTimer();
+  // carousel removed
 }
 
 export function stopAuthBgCarousel() {
@@ -158,9 +83,10 @@ export function startTextCarousel(containerSelector, itemSelector, intervalMs = 
 /* =========================================================
    AUTH MODE (login / signup)
    ========================================================= */
-  export function setAuthMode(isSignup) {
+export function setAuthMode(isSignup) {
   state.isSignupMode = isSignup;
-  
+  document.getElementById("auth-screen")?.classList.toggle("signup-mode", isSignup);
+
   const authError = $("auth-error");
   if (authError) authError.textContent = "";
 
@@ -194,6 +120,9 @@ const signupDraft = {
   businessType: ""
 };
 
+// Set during signup so the auth observer creates the profile with the store details
+let pendingSignupProfile = null;
+
 function resetSignupWizard() {
   signupDraft.step = 1;
   signupDraft.storeName = "";
@@ -213,8 +142,9 @@ function renderSignupStep() {
     dot.classList.toggle("active", n === step);
     dot.classList.toggle("done", n < step);
   });
+
   const progressFill = $("signup-progress-fill");
-  if (progressFill) progressFill.style.width = `${(step / total) * 100}%`;
+  if (progressFill) progressFill.style.width = `${(Math.min(step, total) / total) * 100}%`;
 
   // Show only the current step
   document.querySelectorAll(".signup-step").forEach(el => {
@@ -225,7 +155,7 @@ function renderSignupStep() {
   const errEl = $("signup-error");
   if (errEl) errEl.textContent = "";
 
-  // Prefill back fields if returning to a step
+  // Prefill fields when returning to a step
   if (step === 1) {
     if ($("signup-store-name")) $("signup-store-name").value = signupDraft.storeName;
     if ($("signup-email")) $("signup-email").value = signupDraft.email;
@@ -286,7 +216,7 @@ function friendlyAuthError(code) {
     "auth/popup-closed-by-user": "Sign-in was cancelled.",
     "auth/cancelled-popup-request": "Sign-in was cancelled.",
     "auth/operation-not-allowed":
-      "Google sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in method → Google.",
+      "Sign-in method not enabled. Enable it in Firebase Console → Authentication → Sign-in method.",
     "auth/unauthorized-domain":
       `Domain "${host}" isn't authorized.\n\n` +
       `Add it in Firebase Console → Authentication → Settings → Authorized domains.\n\n` +
@@ -397,15 +327,26 @@ export async function acceptWorkspaceInvite(code) {
 export function initAuthUI() {
   restoreRememberMeUI();
 
-  const tabLogin = $("tab-login"), tabSignup = $("tab-signup");
-  tabLogin?.addEventListener("click", () => setAuthMode(false));
-  tabSignup?.addEventListener("click", () => setAuthMode(true));
+  /* ---------- Tabs / navigation ---------- */
+  $("tab-login")?.addEventListener("click", () => setAuthMode(false));
+  $("tab-signup-inline")?.addEventListener("click", () => setAuthMode(true));
+  $("auth-back-btn")?.addEventListener("click", () => setAuthMode(false));
 
+  /* ---------- Password visibility (wired once) ---------- */
+  const toggleBtn = $("toggle-password");
+  const passInput = $("password");
+  toggleBtn?.addEventListener("click", () => {
+    const show = passInput.type === "password";
+    passInput.type = show ? "text" : "password";
+    toggleBtn.querySelector(".eye-open")?.classList.toggle("hidden", show);
+    toggleBtn.querySelector(".eye-closed")?.classList.toggle("hidden", !show);
+  });
+
+  /* ---------- Login submit ---------- */
   const authForm = $("auth-form");
   const authSubmit = $("auth-submit");
   const authError = $("auth-error");
 
-  /* ---------- Login submit ---------- */
   authForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (authError) authError.textContent = "";
@@ -441,7 +382,7 @@ export function initAuthUI() {
     }
   });
 
-  /* ---------- SIGNUP WIZARD ---------- */
+  /* ---------- Signup wizard ---------- */
   wireSignupWizard();
 
   /* ---------- Google Sign-In / Sign-Up ---------- */
@@ -541,10 +482,8 @@ function wireSignupWizard() {
   };
 
   /* --- STEP 1 --- */
-  // Back to Login
-  $("signup-back-1")?.addEventListener("click", () => {
-    import("./auth.js").then(m => m.setAuthMode(false)); // Calls the toggle function
-  });
+  // Back to login
+  $("signup-back-1")?.addEventListener("click", () => setAuthMode(false));
 
   // Forward to Step 2
   $("signup-next-1")?.addEventListener("click", () => {
@@ -598,7 +537,8 @@ function wireSignupWizard() {
     renderSignupStep();
   });
 
-  // Submit Account Creation
+  // Submit account creation
+  // The auth observer creates users/{uid} and workspaces/{uid} once, using pendingSignupProfile.
   $("signup-submit-btn")?.addEventListener("click", async () => {
     clearErrors();
     const btn = $("signup-submit-btn");
@@ -617,56 +557,27 @@ function wireSignupWizard() {
         console.warn("[Auth] setPersistence (signup) failed:", persistErr);
       }
 
-      const cred = await createUserWithEmailAndPassword(
-        auth, signupDraft.email, signupDraft.password
-      );
-
-      const isSuper = signupDraft.email === SUPER_ADMIN_EMAIL.toLowerCase();
-      let workspaceId;
-      let role;
-
-      if (isSuper) {
-        workspaceId = cred.user.uid;
-        role = "superadmin";
-      } else {
-        workspaceId = await createWorkspaceForOwner(
-          cred.user, signupDraft.storeName, signupDraft.businessType
-        );
-        role = "owner";
-      }
-
-      await setDoc(doc(db, "users", cred.user.uid), {
-        email: signupDraft.email,
-        workspaceId,
-        role,
+      pendingSignupProfile = {
         storeName: signupDraft.storeName,
-        businessType: signupDraft.businessType,
-        approved: isSuper ? true : false,
-        accountStatus: isSuper ? "active" : "pending",
-        displayName: cred.user.displayName || null,
-        photoURL: cred.user.photoURL || null,
-        provider: "password",
-        createdAt: serverTimestamp(),
-        requestedAt: serverTimestamp()
-      });
+        businessType: signupDraft.businessType
+      };
 
-      try {
-        await setDoc(doc(db, "workspaces", workspaceId), {
-          name: signupDraft.storeName,
-          businessType: signupDraft.businessType,
-          status: "active"
-        }, { merge: true });
-      } catch {}
+      await createUserWithEmailAndPassword(auth, signupDraft.email, signupDraft.password);
 
       signupDraft.step = 4;
       renderSignupStep();
       renderSignupSummary();
     } catch (err) {
+      pendingSignupProfile = null;
       console.error("[Signup] failed:", err);
       if ($("signup-error-3")) $("signup-error-3").textContent = friendlyAuthError(err.code);
-      if (btn) { btn.disabled = false; btn.textContent = "Submit Request"; }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Submit request"; }
     }
   });
+
+  // Sign out from the "waiting for approval" step
+  $("signup-signout-btn")?.addEventListener("click", () => signOut(auth));
 }
 
 /* =========================================================
@@ -701,7 +612,6 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       const authError = $("auth-error");
       if (authError) authError.textContent = "";
       restoreRememberMeUI();
-      startAuthBgCarousel("auth-bg-slides");
       onLoggedOut?.();
       return;
     }
@@ -719,6 +629,12 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       const snap = await getDoc(userRef);
 
       if (!snap.exists()) {
+        // New account (signup or first Google sign-in): create the profile once
+        const pending = pendingSignupProfile;
+        pendingSignupProfile = null;
+        const storeName = pending?.storeName || null;
+        const businessType = pending?.businessType || null;
+
         let workspaceId;
         let role;
 
@@ -726,7 +642,7 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
           workspaceId = user.uid;
           role = "superadmin";
         } else {
-          workspaceId = await createWorkspaceForOwner(user);
+          workspaceId = await createWorkspaceForOwner(user, storeName, businessType);
           role = "owner";
         }
 
@@ -734,12 +650,15 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
           email: (user.email || "").toLowerCase(),
           workspaceId,
           role,
+          storeName,
+          businessType,
           approved: isSuper ? true : false,
           accountStatus: isSuper ? "active" : "pending",
           displayName: user.displayName || null,
           photoURL: user.photoURL || null,
           provider: user.providerData?.[0]?.providerId || "password",
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
+          requestedAt: serverTimestamp()
         });
 
         console.log("[Auth] created user doc:", user.uid, "role:", role);
@@ -778,7 +697,6 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       authScreen?.classList.remove("hidden");
       appShell?.classList.add("hidden");
       pendingScreen?.classList.add("hidden");
-      startAuthBgCarousel("auth-bg-slides");
       return;
     }
 
@@ -802,8 +720,6 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
         }
 
         $("join-workspace-modal")?.classList.add("hidden");
-        stopAuthBgCarousel();
-        startAuthBgCarousel("pending-bg-slides");
         onPending?.();
         return;
       }
@@ -815,8 +731,6 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
         appShell?.classList.add("hidden");
         pendingScreen?.classList.remove("hidden");
         $("join-workspace-modal")?.classList.add("hidden");
-        stopAuthBgCarousel();
-        startAuthBgCarousel("pending-bg-slides");
         onPending?.();
         return;
       }
@@ -826,7 +740,6 @@ export function initAuthHandlers({ onLoggedOut, onPending, onApproved, onTeardow
       pendingScreen?.classList.add("hidden");
       authScreen?.classList.add("hidden");
       appShell?.classList.remove("hidden");
-      stopAuthBgCarousel();
       document.body.style.overflow = "";
 
       const isRealSuper = ud.role === "superadmin";

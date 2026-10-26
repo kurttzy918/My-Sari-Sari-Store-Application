@@ -495,6 +495,7 @@ function wireInstallPrompt() {
    ========================================================= */
 buildAuthBackground("auth-bg-slides");
 buildAuthBackground("pending-bg-slides");
+buildAuthBackground("auth-mobile-slides");
 
 requestAnimationFrame(() => {
   startAuthBgCarousel("auth-bg-slides");
