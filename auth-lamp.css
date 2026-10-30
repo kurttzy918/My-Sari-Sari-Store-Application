@@ -598,3 +598,78 @@
   opacity: 1;
   transform: none;
 }
+
+/* ============================================================
+   MOBILE LAMP VISIBILITY — final override
+   Keep the lamp above the login card on phones/tablets.
+   ============================================================ */
+@media (max-width: 900px) {
+  #auth-screen .auth-layout-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 0 !important;
+    width: 100% !important;
+    max-width: 560px !important;
+    margin: 0 auto !important;
+  }
+
+  #auth-screen .lamp-container {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    flex: 0 0 190px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 190px !important;
+    margin: 0 auto 4px !important;
+    overflow: visible !important;
+    transform: none !important;
+    order: 0 !important;
+  }
+
+  #auth-screen .lamp-scene {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 50% !important;
+    width: 300px !important;
+    height: 460px !important;
+    margin: 0 !important;
+    transform: translateX(-50%) scale(.40) !important;
+    transform-origin: 50% 0 !important;
+    pointer-events: auto !important;
+  }
+
+  #auth-screen .auth-shell {
+    order: 1 !important;
+    width: 100% !important;
+    max-width: 560px !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  #auth-screen .lamp-container {
+    flex-basis: 172px !important;
+    height: 172px !important;
+  }
+  #auth-screen .lamp-scene {
+    transform: translateX(-50%) scale(.36) !important;
+  }
+}
+
+/* Landscape phones: show a compact lamp and allow the page to scroll. */
+@media (max-width: 900px) and (max-height: 520px) {
+  #auth-screen .lamp-container {
+    flex-basis: 130px !important;
+    height: 130px !important;
+  }
+  #auth-screen .lamp-scene {
+    transform: translateX(-50%) scale(.28) !important;
+  }
+}
