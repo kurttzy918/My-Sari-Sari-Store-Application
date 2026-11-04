@@ -1,0 +1,611 @@
+/* ==========================================================
+   glass.css — Glassmorphism UI for Dashboard + all app sections.
+   Loaded AFTER style.css. The login / signup screen (#auth-screen)
+   is deliberately excluded and keeps its existing design.
+   ========================================================== */
+
+/* ---------- 1. GLASS TOKENS ---------- */
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-bg-strong: rgba(255, 255, 255, 0.10);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-soft: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  --glass-shadow-hover: 0 16px 44px rgba(0, 0, 0, 0.38);
+  --glass-blur: blur(18px) saturate(160%);
+  --glass-radius: 20px;
+  --glass-radius-sm: 14px;
+  --glass-accent: #FF9900;
+  --glass-accent-soft: rgba(255, 153, 0, 0.18);
+}
+
+html[data-theme="light"] {
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-border-soft: rgba(17, 24, 39, 0.06);
+  --glass-shadow: 0 10px 34px rgba(17, 24, 39, 0.10);
+  --glass-shadow-hover: 0 18px 46px rgba(17, 24, 39, 0.16);
+}
+
+/* ---------- 2. AMBIENT BACKGROUND (app only) ---------- */
+body:not(:has(#auth-screen:not(.hidden))) {
+  background-color: #0B0F19 !important;
+  background-image:
+    radial-gradient(900px 620px at 0% 0%, rgba(255,153,0,0.38), transparent 60%),
+    radial-gradient(900px 700px at 100% 15%, rgba(99,102,241,0.34), transparent 60%),
+    radial-gradient(800px 700px at 60% 110%, rgba(20,184,166,0.28), transparent 60%),
+    radial-gradient(500px 500px at 30% 60%, rgba(236,72,153,0.16), transparent 60%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+html[data-theme="light"] body:not(:has(#auth-screen:not(.hidden))) {
+  background-color: #EEF1F8 !important;
+  background-image:
+    radial-gradient(900px 620px at 0% 0%, rgba(255,153,0,0.28), transparent 60%),
+    radial-gradient(900px 700px at 100% 15%, rgba(99,102,241,0.22), transparent 60%),
+    radial-gradient(800px 700px at 60% 110%, rgba(20,184,166,0.20), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* Remove the old z-index:0 orb layer; it sat behind the glass and blurred nothing */
+#app-shell::before { display: none; }
+
+/* ---------- 3. GLASS SURFACES ---------- */
+/* Shared glass recipe applied to every panel-like container */
+.card,
+.chart-card,
+.stat-card,
+.kpi-card,
+.so-panel,
+.daily-panel,
+.rank-panel,
+.inv-analytics-panel,
+.inv-alerts-panel,
+.inv-category-panel,
+.pos-products,
+.pos-cart,
+.expenses-form-panel,
+.eload-sell-panel,
+.admin-announcements-panel,
+.item-card,
+.customer-card,
+.pos-card,
+.sale-card,
+.history-receipt,
+.payment-row,
+.gcash-row,
+.maya-row,
+.eload-row,
+.expense-row,
+.movement-row,
+.category-card,
+.cat-sum-card,
+.gcash-stat,
+.maya-stat,
+.eload-stat,
+.expenses-stat,
+.kpi-card,
+.pagination-bar,
+.history-bulk-bar,
+.labels-toolbar-floating,
+.topbar,
+.bottom-nav,
+.mobile-bottom-nav,
+.modal-card,
+.empty-state,
+.expiry-banner,
+.offline-banner {
+  background: var(--glass-bg) !important;
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow) !important;
+}
+
+/* Inner tiles inside panels: lighter glass */
+.so-tile,
+.rk-row,
+.svc-side,
+.sales-cat-summary,
+.inv-stat-card,
+.inv-cat-row,
+.txn-row,
+.eload-net-setting-row,
+.exp-cat-manage-row,
+.history-receipt-foot,
+.sale-card-foot,
+.label-item,
+.expense-cat-manage-list > *,
+.gcash-payment-ref,
+.gcash-payment-num,
+.gcash-payment-name,
+.eload-preview,
+.scanner-status,
+.install-instructions,
+.utang-history-summary {
+  background: var(--glass-bg-strong) !important;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border-soft) !important;
+}
+
+/* Hover lift for interactive glass */
+.stat-card:hover,
+.kpi-card:hover,
+.item-card:hover,
+.pos-card:hover,
+.sale-card:hover,
+.history-receipt:hover,
+.customer-card:hover,
+.category-card:hover,
+.cat-sum-card:hover,
+.so-tile:hover,
+.rk-row:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--glass-shadow-hover) !important;
+  border-color: rgba(255, 153, 0, 0.45) !important;
+}
+
+/* Glossy top-edge highlight for a "sheen" effect */
+.stat-card::before,
+.kpi-card::before,
+.chart-card::before,
+.so-panel::before,
+.daily-panel::before,
+.rank-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+  pointer-events: none;
+}
+.stat-card, .kpi-card, .chart-card, .so-panel, .daily-panel, .rank-panel { position: relative; }
+
+/* ---------- 4. TYPOGRAPHY ---------- */
+.page-title,
+.section-heading,
+.card-title,
+.so-title,
+.daily-title,
+.rank-panel-title,
+.inv-alerts-title,
+.expenses-panel-title {
+  color: var(--text) !important;
+  letter-spacing: -0.01em;
+}
+.page-title {
+  font-size: 1.7rem;
+  font-weight: 800;
+  border-left: none !important;
+  padding-left: 0 !important;
+}
+.section-heading {
+  border-left: none !important;
+  padding-left: 0 !important;
+  font-size: 1.05rem;
+}
+.stat-label,
+.kpi-label,
+.so-tile-label,
+.daily-head span,
+.rank-panel-sub,
+.chart-hint {
+  color: var(--text-secondary) !important;
+}
+
+/* ---------- 5. BUTTONS & INPUTS ---------- */
+.btn {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px;
+}
+.btn.ghost {
+  background: var(--glass-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+  color: var(--text) !important;
+}
+.btn.ghost:hover {
+  background: var(--glass-bg-strong) !important;
+  border-color: rgba(255,153,0,0.5) !important;
+}
+.btn.primary {
+  box-shadow: 0 8px 24px rgba(255, 153, 0, 0.35) !important;
+}
+
+input[type="text"], input[type="number"], input[type="email"],
+input[type="search"], input[type="date"], input[type="tel"],
+input[type="time"], select, textarea {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid var(--glass-border) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px !important;
+}
+html[data-theme="light"] input[type="text"],
+html[data-theme="light"] input[type="number"],
+html[data-theme="light"] input[type="email"],
+html[data-theme="light"] input[type="search"],
+html[data-theme="light"] input[type="date"],
+html[data-theme="light"] input[type="tel"],
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+  background: rgba(255, 255, 255, 0.65) !important;
+}
+select option { background: #1F2937; color: #F9FAFB; }
+html[data-theme="light"] select option { background: #FFFFFF; color: #111827; }
+
+/* ---------- 6. TOPBAR & SIDEBAR ---------- */
+.topbar {
+  border-radius: var(--glass-radius);
+  padding: 12px 16px !important;
+  margin-bottom: 18px !important;
+  border-bottom: 1px solid var(--glass-border) !important;
+}
+.bottom-nav {
+  background: rgba(17, 24, 39, 0.45) !important;
+  border-right: 1px solid var(--glass-border) !important;
+}
+html[data-theme="light"] .bottom-nav {
+  background: rgba(255, 255, 255, 0.55) !important;
+}
+.nav-btn {
+  border-radius: 12px !important;
+  transition: background 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+.nav-btn:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+.nav-btn.active {
+  background: linear-gradient(135deg, rgba(255,153,0,0.28), rgba(255,153,0,0.08)) !important;
+  border: 1px solid rgba(255,153,0,0.4) !important;
+  box-shadow: 0 6px 18px rgba(255,153,0,0.18) !important;
+}
+.mobile-bottom-nav {
+  border-radius: 22px 22px 0 0;
+}
+.nav-group-label { opacity: 0.6; }
+
+/* ---------- 7. DASHBOARD SPECIFICS ---------- */
+#page-dashboard .stat-card {
+  border-left: 1px solid var(--glass-border) !important;
+  border-top: 1px solid var(--glass-border) !important;
+  overflow: hidden;
+}
+#page-dashboard .stat-card::after {
+  opacity: 0.35 !important;
+  filter: blur(22px);
+  top: -40%;
+  right: -20%;
+}
+#page-dashboard .stat-value,
+#page-dashboard .kpi-value {
+  text-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
+.so-tile,
+.daily-row,
+.rk-row {
+  border-radius: 14px;
+}
+.daily-row.is-best,
+.rk-row.is-top {
+  box-shadow: inset 0 0 0 1px rgba(255,153,0,0.35);
+}
+.progress,
+.rk-bar,
+.cat-sum-progress,
+.daily-row-bar,
+.expenses-budget-bar,
+.expenses-cat-bar {
+  background: rgba(255,255,255,0.08) !important;
+  backdrop-filter: blur(6px);
+}
+.dash-live-badge,
+.user-count-badge,
+.inv-analytics-badge,
+.rank-panel-chip,
+.eload-panel-badge,
+.sale-badge,
+.badge {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ---------- 8. MODALS & OVERLAYS ---------- */
+.modal {
+  background: rgba(3, 7, 18, 0.55);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.modal-card {
+  background: rgba(17, 24, 39, 0.62) !important;
+  border-radius: 24px !important;
+}
+html[data-theme="light"] .modal-card {
+  background: rgba(255, 255, 255, 0.78) !important;
+}
+.toast {
+  background: rgba(17, 24, 39, 0.72) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+  color: #F9FAFB !important;
+}
+
+/* ---------- 9. MOTION ---------- */
+.stat-card, .kpi-card, .item-card, .pos-card, .sale-card,
+.history-receipt, .so-tile, .rk-row, .category-card {
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stat-card, .kpi-card, .item-card, .pos-card, .sale-card,
+  .history-receipt, .so-tile, .rk-row, .category-card {
+    transition: none !important;
+  }
+}
+
+/* ---------- 10. RESPONSIVE TWEAKS ---------- */
+@media (max-width: 899px) {
+  .bottom-nav {
+    background: rgba(17, 24, 39, 0.72) !important;
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+  }
+  html[data-theme="light"] .bottom-nav {
+    background: rgba(255, 255, 255, 0.80) !important;
+  }
+  .mobile-bottom-nav {
+    background: rgba(17, 24, 39, 0.70) !important;
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+  }
+  html[data-theme="light"] .mobile-bottom-nav {
+    background: rgba(255, 255, 255, 0.82) !important;
+  }
+}
+/* ---------- 11. SUPER ADMIN ROWS ---------- */
+.user-row,
+.announcement-admin-item,
+.announcement-list-item,
+.admin-announcements-panel {
+  background: var(--glass-bg) !important;
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--glass-radius-sm) !important;
+  box-shadow: var(--glass-shadow);
+}
+.user-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.user-row.pending { border-left: 3px solid #FF9900 !important; }
+.user-row.approved { border-left: 3px solid #10B981 !important; }
+.user-mail { font-weight: 700; color: var(--text); }
+.user-meta { font-size: 0.78rem; color: var(--text-secondary); margin-top: 3px; }
+.user-meta code, .user-mail code {
+  background: var(--glass-bg-strong); padding: 1px 6px; border-radius: 6px; font-size: 0.72rem;
+}
+.user-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.admin-error-state .admin-error-code { font-family: monospace; color: #EF4444; }
+.admin-error-hint { font-size: 0.8rem; color: var(--text-secondary); }
+
+/* ---------- 12. INSTALL DIAGNOSTIC ---------- */
+.install-diagnostic {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: var(--glass-radius-sm);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border-soft);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  text-align: left;
+}
+
+/* ---------- 13. AVATAR & GREETING ---------- */
+.topbar-avatar {
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.12) !important;
+}
+.topbar-greeting-name { color: var(--text) !important; }
+
+/* ---------- 14. SALES OVERVIEW TILES — no truncation ---------- */
+.so-tiles {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+@media (min-width: 1200px) {
+  .so-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+}
+.so-tile-value {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  font-size: clamp(0.95rem, 1.6vw, 1.15rem) !important;
+  overflow-wrap: anywhere;
+}
+/* ---------- 15. CHART CARDS — readable glass ---------- */
+.chart-card { background: rgba(255,255,255,0.04) !important; }
+html[data-theme="light"] .chart-card { background: rgba(255,255,255,0.7) !important; }
+/* =========================================================
+   MOBILE FIX — drawer overlap, sizing, and spacing
+   ========================================================= */
+@media (max-width: 899px) {
+
+  /* 1. Drawer: solid enough to hide the page, still glassy on top */
+  html body .bottom-nav {
+    width: min(288px, 82vw) !important;
+    max-width: 82vw !important;
+    background: linear-gradient(180deg, rgba(17,24,39,0.97), rgba(11,15,25,0.97)) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+    backdrop-filter: blur(24px) saturate(160%) !important;
+    box-shadow: 12px 0 40px rgba(0,0,0,0.5) !important;
+    padding: 14px 10px max(16px, env(safe-area-inset-bottom)) !important;
+  }
+  html[data-theme="light"] body .bottom-nav {
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(243,244,248,0.98)) !important;
+  }
+
+  /* 2. Brand block: compact, no giant logo */
+  html body .bottom-nav .sidebar-brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 4px 6px 12px !important;
+    margin-bottom: 8px !important;
+  }
+  html body .bottom-nav .sidebar-brand-logo {
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
+  }
+  html body .bottom-nav .sidebar-brand-text strong {
+    font-size: 0.9rem !important;
+    line-height: 1.2 !important;
+  }
+  html body .bottom-nav .brand-tagline { font-size: 0.66rem !important; }
+
+  /* 3. Nav items: tighter so the whole menu fits without overflowing */
+  html body .bottom-nav .nav-group { gap: 1px !important; padding: 2px 0 !important; }
+  html body .bottom-nav .nav-group-label { padding: 6px 8px 2px !important; font-size: 0.58rem !important; }
+  html body .bottom-nav .nav-btn {
+    padding: 9px 10px !important;
+    font-size: 0.86rem !important;
+    min-height: 40px;
+  }
+  html body .bottom-nav .nav-icon { width: 24px !important; min-width: 24px !important; font-size: 1.1rem !important; }
+
+  /* 4. Backdrop: fully dim the page behind the drawer */
+  html body .nav-backdrop.open {
+    background: rgba(3,7,18,0.72) !important;
+  }
+
+  /* 5. Page shell: no horizontal bleed, comfortable gutters */
+  html body #app-shell,
+  html body .app-shell {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    overflow-x: hidden;
+  }
+
+  /* 6. Topbar: wrap cleanly, avatar and greeting stay readable */
+  html body .topbar {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+    border-radius: 16px !important;
+  }
+  html body .topbar-greeting-name { font-size: 0.95rem !important; }
+  html body .topbar-greeting-sub { font-size: 0.68rem !important; }
+  html body .user-area { gap: 6px !important; }
+  html body .user-email { max-width: 110px !important; font-size: 0.72rem !important; }
+
+  /* 7. Stat cards: two-up grid, no text clipping */
+  html body #page-dashboard .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  html body #page-dashboard .stat-card { padding: 12px !important; min-height: 92px !important; }
+  html body #page-dashboard .stat-value { font-size: 1.2rem !important; }
+
+  /* 8. Sales Overview tiles: two-up on phones */
+  html body .so-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  html body .so-tile-value { font-size: 1rem !important; }
+
+  /* 9. Page titles and section spacing */
+  html body .page-title { font-size: 1.25rem !important; margin-bottom: 12px !important; }
+  html body .section-heading { margin: 16px 0 8px !important; }
+}
+
+/* Very narrow phones */
+@media (max-width: 380px) {
+  html body .bottom-nav { width: 80vw !important; }
+  html body #page-dashboard .stat-value { font-size: 1.05rem !important; }
+}
+/* =========================================================
+   POLISH PASS — stat colours, chart size, panel alignment
+   ========================================================= */
+
+/* 1. Restore per-card accent colours on the dashboard stat cards */
+html body #page-dashboard .stats-grid .stat-card:nth-child(1) .stat-value { color: #34D399 !important; }  /* Running Sales — emerald */
+html body #page-dashboard .stats-grid .stat-card:nth-child(2) .stat-value { color: #60A5FA !important; }  /* Stock Value — blue */
+html body #page-dashboard .stats-grid .stat-card:nth-child(3) .stat-value { color: #2DD4BF !important; }  /* Net Profit — teal */
+html body #page-dashboard .stats-grid .stat-card:nth-child(4) .stat-value { color: #A78BFA !important; }  /* Total Items — violet */
+html body #page-dashboard .stats-grid .stat-card:nth-child(5) .stat-value { color: #FBBF24 !important; }  /* Low Stock — amber */
+html body #page-dashboard .stats-grid .stat-card:nth-child(6) .stat-value { color: #FB923C !important; }  /* Categories — orange */
+
+html[data-theme="light"] body #page-dashboard .stats-grid .stat-card:nth-child(1) .stat-value { color: #047857 !important; }
+html[data-theme="light"] body #page-dashboard .stats-grid .stat-card:nth-child(2) .stat-value { color: #1D4ED8 !important; }
+html[data-theme="light"] body #page-dashboard .stats-grid .stat-card:nth-child(3) .stat-value { color: #0F766E !important; }
+html[data-theme="light"] body #page-dashboard .stats-grid .stat-card:nth-child(4) .stat-value { color: #6D28D9 !important; }
+html[data-theme="light"] body #page-dashboard .stats-grid .stat-card:nth-child(5) .stat-value { color: #B45309 !important; }
+html[data-theme="light"] body #page-dashboard .stats-grid .stat-card:nth-child(6) .stat-value { color: #C2410C !important; }
+
+/* 2. Shorter sales-vs-cost chart on desktop so the breakdown fits above the fold */
+@media (min-width: 900px) {
+  html body #sales-vs-cost-chart { max-height: 200px; }
+  html body .half-pie-wrapper { height: 200px !important; }
+}
+
+/* 3. Daily Breakdown fills the same height as Sales Overview */
+html body .dash-hero { align-items: stretch !important; }
+html body .so-panel,
+html body .daily-panel { height: 100%; }
+html body .daily-panel { min-height: 0 !important; }
+html body .daily-list { flex: 1 1 auto; max-height: none !important; }
+@media (min-width: 900px) {
+  html body .daily-list { max-height: 300px !important; }
+}
+
+/* 4. Sales Overview tiles: level baselines in each row */
+html body .so-tiles { align-items: stretch !important; }
+html body .so-tile { height: 100%; justify-content: space-between; }
+html body .so-tile-value { min-height: 1.3em; }
+
+/* 5. Topbar email: wider, less truncation */
+html body .user-email {
+  max-width: 220px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hover glow on sidebar nav items (desktop) */
+@media (min-width: 900px) {
+  html body .bottom-nav .nav-btn:hover {
+    box-shadow: 0 0 0 1px rgba(255,153,0,0.25), 0 6px 18px rgba(255,153,0,0.12) !important;
+  }
+}
+/* =========================================================
+   SUPPLIER MODULE
+   ========================================================= */
+.sup-code-card {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px; justify-content: space-between;
+}
+.sup-code {
+  display: block; font-size: 1.6rem; letter-spacing: 0.25em; color: #FF9900;
+  font-family: 'Courier New', monospace; margin-top: 4px;
+}
+.sup-store-name, .sup-code-hint { font-size: 0.8rem; color: var(--text-secondary); }
+.sup-draft { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.sup-empty { font-size: 0.8rem; color: var(--text-secondary); padding: 8px 0; }
+.sup-remove {
+  margin-left: 8px; color: #EF4444; font-weight: 800; background: none; border: none; cursor: pointer;
+}
+.sup-card { display: flex; flex-direction: column; gap: 8px; }
+.sup-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.sup-meta { font-size: 0.75rem; color: var(--text-secondary); }
+.sup-lines { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; }
+.sup-line { display: flex; justify-content: space-between; gap: 8px; }
+.sup-actions { display: flex; gap: 8px; margin-top: 4px; }
+.sup-badge {
+  font-size: 0.65rem; font-weight: 800; padding: 3px 9px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.sup-badge.pending  { background: rgba(255,153,0,0.18); color: #FF9900; }
+.sup-badge.received { background: rgba(16,185,129,0.18); color: #10B981; }
+.sup-badge.rejected { background: rgba(239,68,68,0.18); color: #EF4444; }
+.sup-line-editable { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.sup-line-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sup-line-qty { display: flex; align-items: center; gap: 6px; }
+.sup-qty-input { width: 64px; text-align: right; }
+.sup-stock-max { color: var(--text-secondary); font-size: 0.8rem; }
+.sup-bulk { margin-top: 10px; }
+.sup-bulk summary { cursor: pointer; font-size: 0.85rem; color: var(--text-secondary); }
+.sup-bulk textarea { width: 100%; margin-top: 6px; font-family: monospace; font-size: 0.85rem; }

@@ -10,7 +10,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Kurt POS" />
-  <title>Kurt Inventory · Smart Stock &amp; Sales</title>
+  <title>Kurt POS &amp; Inventory</title>
 
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/png" href="inv.png" />
@@ -21,6 +21,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="glass.css" />
   <link rel="stylesheet" href="auth-lamp.css" />
   <link rel="stylesheet" href="theme-cyan.css" />
 
@@ -147,6 +148,7 @@
   <p>Know what's running low before your shelves go empty.</p>
   <p>Record GCash, Maya and eLoad transactions with ease.</p>
   <p>Built for sari-sari stores, karinderyas and mini marts.</p>
+  <p>Powered by Kurt TechWorks — a Filipino App Builder</p>
         </div>
 
         <!-- SIGNUP WIZARD -->
@@ -255,8 +257,8 @@
         <div class="logo">My Sari-Sari Store App</div>
         <div class="brand-tagline-carousel">
           <span class="brand-tagline">Smart Stock &amp; Sales</span>
-          <span class="brand-tagline">Track · Automate · Optimize</span>
-          <span class="brand-tagline">Powered by Kurt POS</span>
+          <span class="brand-tagline">Track & Automate</span>
+          <span class="brand-tagline">Powered by Kurt TechWorks</span>
         </div>
       </div>
     </div>
@@ -322,8 +324,8 @@
         <strong>My Sari-Sari Store App</strong>
         <div class="brand-tagline-carousel">
           <span class="brand-tagline">Smart Stock &amp; Sales</span>
-          <span class="brand-tagline">Track · Automate · Optimize</span>
-          <span class="brand-tagline">Powered by Kurt POS</span>
+          <span class="brand-tagline">Track & Automate</span>
+          <span class="brand-tagline">Powered by Kurt TechWorks</span>
         </div>
       </div>
     </div>
@@ -375,6 +377,9 @@
         <span class="nav-icon">🏷️</span><span>Labels</span>
       </button>
     </div>
+    <button type="button" class="nav-btn" data-page="page-supplier">
+  <span class="nav-icon">🚚</span><span>Supplier</span>
+    </button>
 
     <!-- ============ GROUP: MONEY ============ -->
     <div class="nav-group">
@@ -907,100 +912,89 @@
     <div class="category-summary" id="history-category-summary"></div>
   </main>
 
-  <!-- ========================================================
+    <!-- ========================================================
        PAGE — ADD ITEM
        ======================================================== -->
   <main id="page-add" class="page hidden">
     <h2 class="page-title">➕ Add / Edit Item</h2>
 
-        <div class="inv-analytics-panel">
+    <!-- ============ MODERN ANALYTICS PANEL ============ -->
+    <div class="inv-analytics-panel modern">
       <div class="inv-analytics-header">
-        <h3 class="section-heading" style="margin:0;">💰 Stock Value Overview</h3>
-        <span class="inv-analytics-badge">Live Data</span>
+        <h3 class="section-heading" style="margin:0;">💰 Inventory Value</h3>
+        <span class="inv-analytics-badge">Live</span>
       </div>
 
-      <div class="inv-analytics-grid compact">
-        <div class="inv-stat-card value wide">
-          <div class="inv-stat-icon">💰</div>
-          <div class="inv-stat-info">
-            <span class="inv-stat-label">Total Stock Value (Retail)</span>
-            <strong class="inv-stat-value" id="inv-total-retail">₱0.00</strong>
-          </div>
+      <div class="modern-inv-grid">
+        <div class="modern-inv-stat">
+          <span class="modern-inv-label">Total Retail Value</span>
+          <strong class="modern-inv-value" id="inv-total-retail">₱0.00</strong>
         </div>
       </div>
 
-      <div class="inv-category-panel full">
-        <h4 class="inv-alerts-title">🗂️ Stock Value by Category</h4>
-        <div class="inv-category-list" id="inv-category-breakdown"></div>
+      <div class="modern-inv-categories">
+        <h4 class="modern-inv-cat-title">Top Categories by Value</h4>
+        <div class="modern-cat-list" id="inv-category-breakdown"></div>
       </div>
     </div>
 
-    <div class="card">
-      <form id="item-form">
+    <!-- ============ MODERN FORM ============ -->
+    <div class="card modern-form-card">
+      <form id="item-form" class="modern-form">
         <input type="hidden" id="item-id" />
         <input type="hidden" id="item-image-data" />
 
-        <label>
-          Product name *
-          <input type="text" id="item-name" placeholder="e.g. White bread" required />
-        </label>
+        <!-- Section 1: Basic Info -->
+        <div class="form-section-title">1. Basic Information</div>
+        
+        <div class="form-grid">
+          <label class="form-col-full">
+            Product name *
+            <input type="text" id="item-name" placeholder="e.g. White bread" required />
+          </label>
 
-        <div class="dash-2col">
           <label>
             SKU *
-            <input type="text" id="item-sku" placeholder="Auto" required />
+            <input type="text" id="item-sku" placeholder="Auto-generated if blank" required />
           </label>
+
           <label>
-        Barcode
-  <div class="barcode-row">
-    <!-- External USB / Bluetooth scanner input -->
-    <div class="ext-scan" title="External barcode scanner — click here, then scan">
-      <span class="ext-scan-icon" aria-hidden="true">▣</span>
-      <input
-        type="text"
-        id="item-barcode-ext-input"
-        class="ext-scan-input"
-        placeholder="Scan barcode…"
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="off"
-        spellcheck="false"
-        inputmode="text"
-        aria-label="External barcode scanner input for Add Item"
-      />
-      <span class="ext-scan-dot" id="item-ext-scan-dot" aria-hidden="true" title="Scanner status"></span>
-    </div>
-
-    <!-- Manual field (unchanged) -->
-    <input type="text" id="item-barcode" placeholder="Or type manually" />
-
-    <!-- Camera scan button (unchanged) -->
-    <button type="button" class="btn ghost scan-btn" id="scan-barcode-btn">📷</button>
-  </div>
-</label>
+            Category *
+            <input type="text" id="item-category" list="category-list" placeholder="e.g. Snacks" required />
+            <datalist id="category-list"></datalist>
+          </label>
         </div>
 
-        <label>
-          Category *
-          <input type="text" id="item-category" list="category-list" placeholder="e.g. Snacks" required />
-        </label>
-        <datalist id="category-list"></datalist>
-
-        <div class="dash-2col">
-          <label>
-            Quantity
-            <input type="number" id="item-qty" min="0" step="1" value="0" />
+        <!-- Section 2: Barcode -->
+        <div class="form-section-title">2. Barcode</div>
+        <div class="form-grid">
+          <label class="form-col-full">
+            <div class="barcode-row modern-barcode-row">
+              <div class="ext-scan" title="External barcode scanner">
+                <span class="ext-scan-icon" aria-hidden="true">▣</span>
+                <input type="text" id="item-barcode-ext-input" class="ext-scan-input" placeholder="Scan barcode…" autocomplete="off" />
+                <span class="ext-scan-dot" id="item-ext-scan-dot"></span>
+              </div>
+              <input type="text" id="item-barcode" placeholder="Or type manually" />
+              <button type="button" class="btn primary scan-btn" id="scan-barcode-btn">📷 Scan</button>
+            </div>
           </label>
+        </div>
+
+        <!-- Section 3: Pricing & Stock -->
+        <div class="form-section-title">3. Pricing & Stock</div>
+        <div class="form-grid">
           <label>
             Cost (₱)
             <input type="number" id="item-cost" min="0" step="0.01" placeholder="0.00" />
           </label>
-        </div>
-
-        <div class="discount-grid">
           <label>
             Selling Price (₱) *
             <input type="number" id="item-price" min="0" step="0.01" placeholder="0.00" required />
+          </label>
+          <label>
+            Quantity
+            <input type="number" id="item-qty" min="0" step="1" value="0" />
           </label>
           <label>
             Discount Price (₱)
@@ -1009,7 +1003,9 @@
         </div>
         <div id="item-discount-preview" class="hidden"></div>
 
-        <div class="dash-2col">
+        <!-- Section 4: Settings -->
+        <div class="form-section-title">4. Settings & Photo</div>
+        <div class="form-grid">
           <label>
             Expiry date
             <input type="date" id="item-expiry" />
@@ -1018,11 +1014,8 @@
             Low-stock threshold
             <input type="number" id="item-threshold" min="0" step="1" value="5" />
           </label>
-        </div>
 
-        <label>
-          Photo
-          <div class="photo-upload">
+          <div class="form-col-full photo-upload modern-photo-upload">
             <div class="photo-preview" id="photo-preview">
               <span class="photo-placeholder">📷<br />Add Photo</span>
             </div>
@@ -1034,28 +1027,31 @@
           </div>
           <input type="file" id="item-image" accept="image/*" hidden />
           <input type="file" id="item-image-camera" accept="image/*" capture="environment" hidden />
-        </label>
+        </div>
 
-        <div class="section-heading-row" style="margin-top:8px;">
-          <button type="submit" class="btn primary">💾 Save Item</button>
+        <div class="form-actions">
+          <button type="submit" class="btn primary btn-save">💾 Save Item</button>
           <button type="button" class="btn ghost" id="import-inv-excel-btn">📥 Import Excel</button>
         </div>
       </form>
     </div>
 
-    <div class="section-heading-row">
-      <h3 class="section-heading">📦 Inventory</h3>
+    <!-- ============ INVENTORY LIST ============ -->
+    <div class="section-heading-row" style="margin-top: 32px;">
+      <h3 class="section-heading">📦 Current Inventory</h3>
       <div class="export-btns">
         <button type="button" class="btn ghost sm" id="export-inv-excel">📊 Excel</button>
         <button type="button" class="btn ghost sm" id="export-inv-pdf">📄 PDF</button>
       </div>
     </div>
+    
     <div class="toolbar compact">
       <input type="search" id="search-input" placeholder="Search inventory…" />
       <select id="filter-category">
         <option value="">All Categories</option>
       </select>
     </div>
+    
     <div class="inventory-list" id="inventory-list"></div>
     <div class="pagination-bar" id="inventory-pagination"></div>
   </main>
@@ -1184,6 +1180,103 @@
 
     <div class="labels-product-list" id="labels-product-list"></div>
   </main>
+
+  <main id="page-supplier" class="page hidden">
+  <h2 class="page-title">🚚 Supplier — Send Stock</h2>
+
+  <!-- ============ YOUR STORE CARD ============ -->
+  <div class="sup-info-card">
+    <div class="sup-info-main">
+      <span class="sup-info-label">Your store</span>
+      <strong id="sup-store-name" class="sup-info-name">—</strong>
+      <span id="sup-owner-email" class="sup-info-email"></span>
+    </div>
+    <div class="sup-info-hint">Receivers see this name on the delivery.</div>
+  </div>
+
+  <!-- ============ SEND SECTION ============ -->
+  <div class="sup-send-card">
+
+    <!-- Receiver lookup -->
+    <div class="sup-field">
+      <label class="sup-label">Receiver's email</label>
+      <input type="email" id="sup-target-email" class="sup-input"
+             placeholder="receiver@gmail.com" autocomplete="off" />
+      <div id="sup-target-status" class="sup-target-status"></div>
+    </div>
+
+    <!-- Item search picker -->
+    <div class="sup-field">
+      <label class="sup-label">Add items</label>
+      <div class="sup-search-wrap">
+        <span class="sup-search-icon">🔍</span>
+        <input type="text" id="sup-picker-search" class="sup-input sup-search-input"
+               placeholder="Search by name, SKU, or barcode — press Enter to add"
+               autocomplete="off" />
+      </div>
+      <div id="sup-picker-list" class="sup-picker-list"></div>
+    </div>
+
+    <!-- Line grid -->
+    <div class="sup-grid-wrap">
+      <div class="sup-grid-head">
+        <span class="sup-grid-title">Shipment lines</span>
+        <span id="sup-draft-summary" class="sup-grid-summary">0 items · 0 pcs</span>
+        <button type="button" id="sup-clear-btn" class="sup-clear-btn">Clear all</button>
+      </div>
+
+      <table class="sup-grid">
+        <thead>
+          <tr>
+            <th class="sup-th-num">#</th>
+            <th class="sup-th-name">Item</th>
+            <th class="sup-th-qty">Quantity</th>
+            <th class="sup-th-del"></th>
+          </tr>
+        </thead>
+        <tbody id="sup-draft-body"></tbody>
+      </table>
+
+      <div id="sup-draft-empty" class="sup-grid-empty">
+        <div class="sup-empty-icon">📦</div>
+        <div class="sup-empty-text">No items yet — search above to add lines</div>
+      </div>
+    </div>
+
+    <!-- Bulk paste -->
+    <details class="sup-bulk">
+      <summary>
+        <span class="sup-bulk-title">📋 Bulk paste</span>
+        <span class="sup-bulk-hint">name / SKU / barcode → qty, one per line</span>
+      </summary>
+      <textarea id="sup-bulk-text" rows="6" class="sup-bulk-text"
+      placeholder="Coke 1.5L	10
+      Skyflakes	24
+      0049000042566	12"></textarea>
+      <div class="sup-bulk-actions">
+        <button type="button" class="btn ghost sm" id="sup-bulk-btn">➕ Add all</button>
+      </div>
+    </details>
+
+    <!-- Actions -->
+    <div class="sup-actions-row">
+      <button type="button" class="btn primary sup-send-btn"
+              data-sup-act="send" disabled>
+        🚚 Send shipment
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ INCOMING ============ -->
+  <h3 class="section-heading">📥 Incoming deliveries</h3>
+  <div id="sup-incoming" class="customers-list"></div>
+  <div id="sup-incoming-pagination" class="pagination-bar"></div>
+
+  <!-- ============ OUTGOING ============ -->
+  <h3 class="section-heading">📤 Sent shipments</h3>
+  <div id="sup-outgoing" class="customers-list"></div>
+  <div id="sup-outgoing-pagination" class="pagination-bar"></div>
+</main>
 
   <!-- ========================================================
        PAGE — GCASH

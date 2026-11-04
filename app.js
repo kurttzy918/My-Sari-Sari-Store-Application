@@ -45,6 +45,9 @@ import {
   initAnnouncements, startAnnouncementsListener,
   renderAdminAnnouncements, flushPendingAnnouncements
 } from "./announcements.js";
+import {
+  initSupplier, startSupplierListeners, renderSupplierPage, ensureDirectoryEntry
+} from "./supplier.js";
 
 /* User count — Firestore aggregate query + handle */
 import {
@@ -641,6 +644,12 @@ function wireNav() {
       if (btn.dataset.page === "page-admin") {
         safeRender(renderAdminAnnouncements);
       }
+      // ✅ Supplier page — always re-render on open
+      if (btn.dataset.page === "page-supplier") {
+        safeRender(renderSupplierPage);
+        // Make sure our directory entry exists in case workspace loaded late
+        ensureDirectoryEntry(false).catch(() => {});
+      }
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
   });
@@ -746,6 +755,7 @@ function wireDashboardRefresh() {
     safeRender(renderCustomerPickerOptions);
     safeRender(renderCharts);
     safeRender(renderInventoryAnalytics);
+    safeRender(renderSupplierPage);
 
     showToast("Dashboard refreshed ✅");
 
@@ -775,6 +785,7 @@ function startAllListeners() {
     safeRender(renderCustomerPickerOptions);
     safeRender(renderCharts);
     safeRender(renderInventoryAnalytics);
+    safeRender(renderSupplierPage);
   };
   startInventoryListeners(onAfter);
   startSalesListener(onAfter);
@@ -784,9 +795,13 @@ function startAllListeners() {
   startEloadListeners(onAfter);
   startExpensesListeners(onAfter);
   startStaffListeners();
+  ensureDirectoryEntry();
 
   /* Announcements — live "What's New" feed for all users */
   startAnnouncementsListener();
+
+  /* Supplier — cross-store shipments + directory listing */
+  startSupplierListeners();
 }
 
 function stopAllListeners() {
@@ -1120,6 +1135,8 @@ function runPostApprovalRenders() {
     safeRender(renderInventoryAnalytics);
     safeRender(renderStaffPage);
     safeRender(renderAdminAnnouncements);
+    safeRender(renderSupplierPage);
+    ensureDirectoryEntry();
 
     // ✅ Always attempt the announcement popup after everything is mounted
     setTimeout(() => flushPendingAnnouncements(), 1200);
@@ -1134,6 +1151,8 @@ function onApproved(userData) {
   if (shellVisible && alreadyRan) {
     applyRoleVisibility();
     updateTopbarRoleBadge();
+    // Re-ensure directory entry (name may have changed)
+    ensureDirectoryEntry(false).catch(() => {});
     // ✅ Still try to show pending announcements for a returning user
     setTimeout(() => flushPendingAnnouncements(), 600);
     return;
@@ -1147,6 +1166,11 @@ function onApproved(userData) {
   startUserCountTicker();
   syncThemeToggleUI();
   syncSoundToggleUI();
+
+  // ✅ Make sure our store is discoverable in the supplier directory
+  ensureDirectoryEntry().catch(err =>
+    console.warn("[supplier] directory entry failed:", err)
+  );
 
   updateAutoSyncUI();
   setTimeout(() => { autoSyncFromFile({ silent: true }); }, 2500);
@@ -1453,6 +1477,7 @@ function boot() {
   initExpenses();
   initStaff();
   initAnnouncements();
+  initSupplier();
   wireNav();
   wireMobileNav();
   wireDashboardRefresh();
