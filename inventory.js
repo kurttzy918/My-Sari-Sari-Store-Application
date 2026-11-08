@@ -498,38 +498,99 @@ export function restockItem(id) {
   const item = state.inventory.find(i => i.id === id);
   if (!item) return;
   state.restockItemId = id;
-  const nameEl = $("restock-item-name"), curEl = $("restock-current"), qtyEl = $("restock-qty");
-  if (nameEl) nameEl.textContent = item.name;
-  if (curEl) curEl.textContent = `Current stock: ${fmtInt(item.quantity)} · SKU: ${item.sku}${item.barcode ? " · Barcode: " + item.barcode : ""}`;
-  if (qtyEl) qtyEl.value = 10;
+
+  if ($("restock-item-name")) $("restock-item-name").textContent = item.name;
+  if ($("restock-current")) $("restock-current").textContent = `Current stock: ${fmtInt(item.quantity)} · SKU: ${item.sku}${item.barcode ? " · Barcode: " + item.barcode : ""}`;
+  if ($("restock-qty")) $("restock-qty").value = 10;
+  
+  // Safely populate new fields
+  if ($("restock-cost")) $("restock-cost").value = item.cost || 0;
+  if ($("restock-markup")) $("restock-markup").value = item.markup || 0;
+  if ($("restock-price")) $("restock-price").value = item.price || 0;
+  
+  // Safely set the sold type radio button
+  const soldType = item.soldType || "piece";
+  document.querySelectorAll('input[name="restock-sold-type"]').forEach(radio => {
+    radio.checked = (radio.value === soldType);
+  });
+
   $("restock-modal")?.classList.remove("hidden");
-  setTimeout(() => qtyEl?.focus(), 100);
+  setTimeout(() => $("restock-qty")?.focus(), 100);
 }
 window.restockItem = restockItem;
 
 function wireRestock() {
   $("restock-close")?.addEventListener("click", () => $("restock-modal")?.classList.add("hidden"));
+
+  // Auto-calculate Price from Cost & Markup
+  const calcPrice = () => {
+    const cost = Number($("restock-cost")?.value) || 0;
+    const markup = Number($("restock-markup")?.value) || 0;
+    if (cost > 0 && markup > 0) {
+      const price = cost * (1 + markup / 100);
+      if ($("restock-price")) $("restock-price").value = price.toFixed(2);
+    }
+  };
+
+  // Auto-calculate Markup from Cost & Price
+  const calcMarkup = () => {
+    const cost = Number($("restock-cost")?.value) || 0;
+    const price = Number($("restock-price")?.value) || 0;
+    if (cost > 0 && price > 0) {
+      const markup = ((price - cost) / cost) * 100;
+      if ($("restock-markup")) $("restock-markup").value = markup.toFixed(1);
+    }
+  };
+
+  $("restock-cost")?.addEventListener("input", calcPrice);
+  $("restock-markup")?.addEventListener("input", calcPrice);
+  $("restock-price")?.addEventListener("input", calcMarkup);
+
   $("restock-confirm")?.addEventListener("click", async () => {
-    const qty = Number(valOf($("restock-qty")));
-    if (!qty || qty <= 0) { showToast("Enter a valid quantity ❌"); return; }
+    const qty = Number($("restock-qty")?.value) || 0;
+    if (qty <= 0) { 
+      showToast("Enter a valid quantity ❌"); 
+      return; 
+    }
+
+    const cost = Number($("restock-cost")?.value) || 0;
+    const markup = Number($("restock-markup")?.value) || 0;
+    const price = Number($("restock-price")?.value) || 0;
+    const soldType = document.querySelector('input[name="restock-sold-type"]:checked')?.value || "piece";
+
     const item = state.inventory.find(i => i.id === state.restockItemId);
-    if (!item) return;
+    if (!item) { 
+      showToast("Item not found ❌"); 
+      return; 
+    }
+
     try {
       const batch = writeBatch(db);
       batch.update(doc(db, "inventory", state.restockItemId), {
-        quantity: increment(qty), updatedAt: serverTimestamp()
+        quantity: increment(qty),
+        cost: cost,
+        markup: markup,
+        price: price,
+        soldType: soldType,
+        updatedAt: serverTimestamp()
       });
+      
       const mov = movementDoc({
         itemId: item.id, itemName: item.name,
         type: "in", quantity: qty, reason: "restock", note: ""
       });
-      mov.unitCost = Number(item.cost) || 0;
+      mov.unitCost = cost; 
+      
       batch.set(doc(collection(db, "movements")), mov);
       await settleWrite(batch.commit(), "Restock");
+      
       playSuccessSound();
       showToast(`Restocked +${fmtInt(qty)} ✅`);
       $("restock-modal")?.classList.add("hidden");
-    } catch (err) { showToast(`Failed: ${err.code || err.message} ❌`); }
+    } catch (err) { 
+      console.error("[Restock Error]", err);
+      showToast(`Failed: ${err.code || err.message} ❌`); 
+    }
   });
 }
 

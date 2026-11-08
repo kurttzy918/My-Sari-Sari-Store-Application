@@ -54,6 +54,48 @@
         <div class="lamp-stand"></div>
         <div class="lamp-base"></div>
 
+        <!-- ✅ CARTOON BOY SVG -->
+        <div class="walking-boy" id="walking-boy">
+          <svg viewBox="0 0 100 140" width="100%" height="100%">
+            <!-- Shadow underneath -->
+            <ellipse cx="50" cy="135" rx="25" ry="5" fill="rgba(0,0,0,0.5)" class="boy-shadow"/>
+
+            <!-- Left Leg (Background) -->
+            <g class="boy-leg boy-leg-left">
+              <path d="M40 85 L30 125" stroke="#E2E8F0" stroke-width="14" stroke-linecap="round"/>
+              <ellipse cx="30" cy="125" rx="12" ry="6" fill="#E2E8F0"/>
+            </g>
+
+            <!-- Left Arm (Background) -->
+            <g class="boy-arm boy-arm-left">
+              <path d="M35 55 L20 80" stroke="#E2E8F0" stroke-width="10" stroke-linecap="round"/>
+              <circle cx="20" cy="80" r="6" fill="#E2E8F0"/>
+            </g>
+
+            <!-- Body (T-shirt) -->
+            <rect x="33" y="45" width="34" height="45" rx="12" fill="#E2E8F0" class="boy-body"/>
+
+            <!-- Head -->
+            <circle cx="50" cy="28" r="16" fill="#E2E8F0" class="boy-head"/>
+            
+            <!-- Cap/Hair -->
+            <path d="M32 25 Q50 5 68 25 Z" fill="#E2E8F0" class="boy-cap"/>
+            <rect x="28" y="22" width="44" height="5" rx="2.5" fill="#E2E8F0" class="boy-cap"/>
+
+            <!-- Right Leg (Foreground) -->
+            <g class="boy-leg boy-leg-right">
+              <path d="M60 85 L70 125" stroke="#E2E8F0" stroke-width="14" stroke-linecap="round"/>
+              <ellipse cx="70" cy="125" rx="12" ry="6" fill="#E2E8F0"/>
+            </g>
+
+            <!-- Right Arm (Foreground - Pulls Cord) -->
+            <g class="boy-arm boy-arm-right">
+              <path d="M65 55 L82 80" stroke="#E2E8F0" stroke-width="10" stroke-linecap="round"/>
+              <circle cx="82" cy="80" r="6" fill="#E2E8F0"/>
+            </g>
+          </svg>
+        </div>
+
         <button type="button" class="pull-cord-container" id="pull-cord"
                 aria-label="Pull cord to turn the light on or off" aria-pressed="false">
           <div class="cord"></div>
@@ -2246,25 +2288,68 @@
   (function () {
     var screen = document.getElementById("auth-screen");
     var cord = document.getElementById("pull-cord");
-    if (!screen || !cord) return;
+    var boy = document.getElementById("walking-boy");
+    var rightArm = document.querySelector(".boy-arm-right");
+    var limbs = document.querySelectorAll(".boy-arm, .boy-leg");
 
+    if (!screen || !cord || !boy) return;
+
+    var isAnimating = false;
+
+    function playIntro() {
+      if (screen.classList.contains("lamp-on") || isAnimating) return;
+      isAnimating = true;
+
+      // 1. Show boy and walk in (Takes 2 seconds)
+      boy.classList.add("show", "walk-in");
+      limbs.forEach(el => el.classList.add("limb-walk"));
+
+      // 2. Boy stops, reaches his arm up
+      setTimeout(() => {
+        limbs.forEach(el => el.classList.remove("limb-walk"));
+        if (rightArm) rightArm.style.transform = "rotate(-65deg)";
+      }, 2000);
+
+      // 3. Boy pulls the cord, light turns on
+      setTimeout(() => {
+        cord.style.transform = "translateY(20px)";
+        screen.classList.add("lamp-on");
+        cord.setAttribute("aria-pressed", "true");
+      }, 2400);
+
+      // 4. Boy releases the cord and drops his arm
+      setTimeout(() => {
+        cord.style.transform = "";
+        if (rightArm) rightArm.style.transform = "";
+      }, 2800);
+
+      // 5. Boy turns around and walks out
+      setTimeout(() => {
+        boy.classList.remove("walk-in");
+        boy.classList.add("walk-out");
+        limbs.forEach(el => el.classList.add("limb-walk"));
+      }, 3200);
+
+      // 6. Cleanup animation states
+      setTimeout(() => {
+        boy.classList.remove("show", "walk-out");
+        limbs.forEach(el => el.classList.remove("limb-walk"));
+        isAnimating = false;
+      }, 4800);
+    }
+
+    // Run the animation automatically after 600ms
+    window.addEventListener("load", () => {
+      setTimeout(playIntro, 600);
+    });
+
+    // Fallback: Allow the user to still click the cord manually if they skip the intro
     cord.addEventListener("click", function () {
+      if (isAnimating) return;
       var on = !screen.classList.contains("lamp-on");
       screen.classList.toggle("lamp-on", on);
       cord.setAttribute("aria-pressed", String(on));
     });
-  })();
-</script>
-<script>
-  (function () {
-    var items = document.querySelectorAll(".auth-tagline p");
-    if (items.length < 2) return;
-    var i = 0;
-    setInterval(function () {
-      items[i].classList.remove("active");
-      i = (i + 1) % items.length;
-      items[i].classList.add("active");
-    }, 4000);
   })();
 </script>
 <script type="module" src="app.js"></script>

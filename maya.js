@@ -112,9 +112,13 @@ function renderMayaSummary() {
     const amt = Number(t.amount) || 0;
     const fee = Number(t.fee) || 0;
 
-    if (t.type === "in") balance += amt;
-    else if (t.type === "out") balance -= amt;
-    balance += fee;
+    // Correct Balance Logic
+    if (t.type === "in") {
+      balance += amt; // Amount received is the full amount
+    } else if (t.type === "out") {
+      balance -= amt; // Cash given out
+      balance += fee; // Fee received back in cash
+    }
 
     if (ms >= todayStart) {
       if (t.type === "in") { inToday += amt; inCount++; }

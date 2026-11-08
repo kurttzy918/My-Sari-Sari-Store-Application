@@ -8484,3 +8484,228 @@ html[data-theme="light"] body .topbar {
     grid-template-columns: 1fr;
   }
 }
+/* =========================================================
+   MOBILE DASHBOARD CLEANUP (Overrides previous rules)
+   ========================================================= */
+@media (max-width: 899px) {
+  
+  /* 1. Topbar - Clean up the layout */
+  .topbar {
+    padding: 12px 16px !important;
+    margin-bottom: 12px !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 12px !important;
+    background: transparent !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* Hide the long email on mobile to save space */
+  .user-email {
+    display: none !important;
+  }
+
+  /* Group the action buttons properly */
+  .user-area {
+    margin-left: auto !important;
+    flex: 0 0 auto !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  /* Move the greeting/avatar to take full width on the second row */
+  .topbar-greeting {
+    flex: 1 1 100% !important;
+    order: 3 !important;
+    margin-top: 4px !important;
+    gap: 10px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    padding: 8px 12px !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  }
+
+  .topbar-greeting-name {
+    font-size: 1rem !important;
+  }
+
+  /* Make toggles slightly smaller to fit better */
+  .toggle-switch {
+    width: 40px !important;
+    height: 24px !important;
+    flex: 0 0 40px !important;
+  }
+  .toggle-knob {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  .toggle-switch[aria-checked="true"] .toggle-knob {
+    transform: translateX(16px) !important;
+  }
+
+  /* 2. Dashboard Title Row */
+  .dash-top {
+    margin-top: 20px !important;
+    margin-bottom: 16px !important;
+    gap: 10px !important;
+  }
+
+  .dash-top .page-title {
+    font-size: 1.5rem !important;
+    margin: 0 !important;
+    border-left: none !important;
+    padding-left: 0 !important;
+  }
+
+  .dash-live-badge, .dash-refresh-btn {
+    padding: 6px 10px !important;
+    font-size: 0.7rem !important;
+  }
+
+  /* 3. Stat Cards (Running Sales, Stock Value, etc.) */
+  #page-dashboard .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  #page-dashboard .stat-card {
+    padding: 14px 12px !important;
+    min-height: 85px !important;
+    border-radius: 12px !important;
+    border-left-width: 4px !important;
+  }
+
+  /* Force long text to wrap gracefully */
+  #page-dashboard .stat-label {
+    font-size: 0.65rem !important;
+    line-height: 1.2 !important;
+    margin-bottom: 6px !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+  }
+
+  #page-dashboard .stat-value {
+    font-size: 1.25rem !important;
+    letter-spacing: -0.02em !important;
+    word-break: break-all !important;
+  }
+
+  /* Remove the decorative circles on mobile for a cleaner look */
+  #page-dashboard .stat-card::after {
+    display: none !important;
+  }
+}
+
+/* For very small phones */
+@media (max-width: 380px) {
+  #page-dashboard .stat-value {
+    font-size: 1.1rem !important;
+  }
+  #page-dashboard .stat-card {
+    padding: 12px 10px !important;
+  }
+}
+/* =========================================================
+   AUTH LOGIN INPUT FIX — Force dark background & kill autofill gray
+   ========================================================= */
+
+/* 1. Ensure the input itself is transparent and uses the theme text color */
+#auth-screen .auth-input-wrapper input {
+  background: transparent !important;
+  color: var(--text) !important;
+  border: none !important;
+}
+
+/* 2. Force Chrome/Edge Autofill to match your dark theme */
+#auth-screen .auth-input-wrapper input:-webkit-autofill,
+#auth-screen .auth-input-wrapper input:-webkit-autofill:hover,
+#auth-screen .auth-input-wrapper input:-webkit-autofill:focus,
+#auth-screen .auth-input-wrapper input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset !important;
+  -webkit-text-fill-color: var(--text) !important;
+  transition: background-color 5000s ease-in-out 0s;
+  caret-color: var(--text) !important;
+}
+
+/* 3. Make sure the placeholder text is readable on the dark background */
+#auth-screen .auth-input-wrapper input::placeholder {
+  color: var(--text-secondary) !important;
+  opacity: 0.7;
+}
+/* =========================================================
+   CARTOON BOY ANIMATION
+   ========================================================= */
+.walking-boy {
+  position: absolute;
+  bottom: 15px;
+  left: -150px;
+  width: 60px; /* Slightly larger for better cartoon details */
+  height: 120px;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  /* Gives him a magical glowing silhouette effect */
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.6));
+}
+
+.walking-boy.show { opacity: 1; }
+
+.walking-boy svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Base styles for the body parts */
+.boy-head, .boy-body, .boy-cap { fill: #E2E8F0; }
+.boy-shadow { fill: rgba(0,0,0,0.4); transition: opacity 0.3s; }
+
+.boy-arm, .boy-leg {
+  stroke: #E2E8F0;
+  transform-box: fill-box;
+}
+
+/* Setup pivot points for animation */
+.boy-arm-left { transform-origin: top right; }
+.boy-arm-right { transform-origin: top left; transition: transform 0.4s ease; }
+.boy-leg-left { transform-origin: top right; }
+.boy-leg-right { transform-origin: top left; }
+
+/* Animation Classes */
+.walking-boy.walk-in { animation: walkIn 2s forwards ease-in-out; }
+.walking-boy.walk-out { animation: walkOut 1.5s forwards ease-in-out; }
+
+/* Limb swinging and Body bobbing */
+.limb-walk { animation: walkCycle 0.4s infinite alternate ease-in-out; }
+.walking-boy.walk-in svg, 
+.walking-boy.walk-out svg { animation: boyBob 0.4s infinite alternate ease-in-out; }
+
+@keyframes walkIn {
+  0% { left: -150px; opacity: 0; }
+  10% { opacity: 1; }
+  100% { left: calc(50% - 30px); } /* Stops exactly under the lamp */
+}
+@keyframes walkOut {
+  0% { left: calc(50% - 30px); opacity: 1; }
+  100% { left: 150px; opacity: 0; }
+}
+@keyframes walkCycle {
+  0% { transform: rotate(-25deg); }
+  100% { transform: rotate(25deg); }
+}
+@keyframes boyBob {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-6px); }
+}
+
+/* Hide shadow when he disappears */
+.walking-boy.walk-out .boy-shadow { opacity: 0; }
+
+/* Mobile responsive adjustments */
+@media (max-width: 600px) {
+  .walking-boy { width: 45px; height: 90px; bottom: 10px; }
+  @keyframes walkIn { 0% { left: -100px; opacity: 0; } 10% { opacity: 1; } 100% { left: calc(50% - 22px); } }
+  @keyframes walkOut { 0% { left: calc(50% - 22px); opacity: 1; } 100% { left: 100px; opacity: 0; } }
+}
