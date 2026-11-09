@@ -330,23 +330,25 @@
     </div>
 
     <div class="user-area">
-      <!-- ✅ NEW: Announcement bell -->
+      <!-- Announcement bell -->
       <button type="button" id="announcement-bell-btn" class="bell-btn" aria-label="Announcements" title="Announcements">
         <span class="bell-icon" aria-hidden="true">🔔</span>
         <span id="announcement-badge" class="bell-badge hidden">0</span>
       </button>
 
+      <!-- Existing Toggles -->
       <button type="button" id="sound-toggle" class="toggle-switch" role="switch" aria-checked="true" aria-label="Sound">
         <span class="toggle-knob"><span class="toggle-emoji" id="sound-icon">🔊</span></span>
       </button>
       <button type="button" id="theme-toggle" class="toggle-switch" role="switch" aria-checked="false" aria-label="Theme">
         <span class="toggle-knob"><span class="toggle-emoji" id="theme-icon">☀️</span></span>
       </button>
+      
       <button type="button" id="install-btn" class="btn ghost sm hidden">📲 Install</button>
       <span class="user-email" id="user-email">—</span>
       <span id="user-role-badge" class="role-badge hidden">—</span>
       
-      <!-- ✅ Desktop only: Logout stays here. Mobile hides it in the drawer. -->
+      <!-- Desktop only: Logout stays here -->
       <button type="button" id="logout-btn" class="btn danger sm desktop-logout">Logout</button>
     </div>
   </header>
@@ -1791,7 +1793,25 @@
     <button type="button" class="btn primary" id="install-banner-btn">Install</button>
     <button type="button" class="install-banner-close" id="install-banner-close" aria-label="Dismiss">✕</button>
   </div>
-</div>
+
+  <!-- 🎵 MODERN FLOATING MUSIC WIDGET 🎵 -->
+  <div id="music-widget" class="music-widget">
+    <div class="music-art">
+      <div class="music-art-center"></div>
+    </div>
+    <div class="music-info">
+      <span class="music-title">Background Music</span>
+      <span class="music-status" id="music-status">Playing</span>
+    </div>
+    <button type="button" id="music-toggle" class="music-control" aria-label="Toggle Background Music">
+      <span id="music-icon">⏸️</span>
+    </button>
+  </div>
+
+  <!-- 🎵 CHANGE THE SRC HERE TO YOUR OWN MP3 LINK OR FILE PATH -->
+  <audio id="bg-music" src="Justin Bieber - Mistletoe (Lyrics).mp3" loop></audio>
+
+</div> <!-- End of app-shell -->
 
 <!-- ============================================================
      MODALS

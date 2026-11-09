@@ -8709,3 +8709,204 @@ html[data-theme="light"] body .topbar {
   @keyframes walkIn { 0% { left: -100px; opacity: 0; } 10% { opacity: 1; } 100% { left: calc(50% - 22px); } }
   @keyframes walkOut { 0% { left: calc(50% - 22px); opacity: 1; } 100% { left: 100px; opacity: 0; } }
 }
+/* =========================================================
+   LEAF FALL DECORATION (FIXED VISIBILITY)
+   ========================================================= */
+.leaf-fall-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 999; /* Increased to float above the app background */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.leaf-fall-container .leaf {
+  position: absolute;
+  top: -10vh;
+  left: var(--start-x, 50%);
+  pointer-events: none;
+  will-change: transform;
+  animation: leafFall var(--duration, 14s) linear var(--delay, 0s) forwards;
+}
+
+.leaf-fall-container .leaf > span {
+  display: block;
+  font-size: var(--size, 24px); /* Made slightly larger */
+  line-height: 1;
+  opacity: 0;
+  will-change: transform, opacity;
+  /* Added a white glow so they pop against the dark background */
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.6)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
+  animation:
+    leafFade var(--duration, 14s) linear var(--delay, 0s) forwards,
+    leafSway 3.4s ease-in-out infinite alternate;
+}
+
+@keyframes leafFall {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(115vh); }
+}
+
+@keyframes leafFade {
+  0%   { opacity: 0; }
+  10%  { opacity: var(--max-opacity, 0.85); }
+  90%  { opacity: var(--max-opacity, 0.85); }
+  100% { opacity: 0; }
+}
+
+@keyframes leafSway {
+  0%   { transform: translateX(-30px) rotate(-35deg); }
+  100% { transform: translateX(30px)  rotate(35deg); }
+}
+
+/* Hide for accessibility if user has Reduce Motion turned on */
+@media (prefers-reduced-motion: reduce) {
+  .leaf-fall-container { display: none !important; }
+}
+/* =========================================================
+   MODERN FLOATING MUSIC WIDGET
+   ========================================================= */
+.music-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(30, 41, 59, 0.85); /* Deep slate glass */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 153, 0, 0.3);
+  border-radius: 50px;
+  padding: 8px 16px 8px 8px;
+  z-index: 9999; /* Highest priority */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(100px);
+  opacity: 0;
+  animation: slideInWidget 0.5s 1s forwards ease-out;
+}
+
+@keyframes slideInWidget {
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Mobile adjustments to sit above bottom nav */
+@media (max-width: 899px) {
+  .music-widget {
+    bottom: calc(75px + env(safe-area-inset-bottom));
+    right: 16px;
+  }
+}
+
+/* Spinning Vinyl Disc */
+.music-art {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle,
+    #1e293b,
+    #1e293b 2px,
+    #0f172a 3px,
+    #0f172a 4px
+  );
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* The colored edge of the vinyl */
+.music-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 153, 0, 0.6);
+}
+
+.music-art-center {
+  width: 14px;
+  height: 14px;
+  background: #FF9900;
+  border-radius: 50%;
+  border: 3px solid #1e293b;
+  z-index: 2;
+}
+
+/* Animation logic */
+.music-widget.is-playing .music-art {
+  animation: spinDisc 3s linear infinite;
+}
+
+@keyframes spinDisc {
+  100% { transform: rotate(360deg); }
+}
+
+/* Text Info */
+.music-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 110px;
+}
+
+.music-title {
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.music-status {
+  color: #FF9900;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+  transition: color 0.2s;
+}
+
+.music-widget:not(.is-playing) .music-status {
+  color: #94a3b8;
+}
+
+/* Play/Pause Button */
+.music-control {
+  background: #FF9900;
+  color: #111827;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 153, 0, 0.3);
+}
+
+.music-control:hover {
+  transform: scale(1.1);
+  background: #ffad33;
+}
+
+.music-control:active {
+  transform: scale(0.95);
+}
+
+/* When paused, change button to white/slate */
+.music-widget:not(.is-playing) .music-control {
+  background: #334155;
+  color: #fff;
+  box-shadow: none;
+}
+.music-widget:not(.is-playing) .music-control:hover {
+  background: #475569;
+}

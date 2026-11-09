@@ -1512,5 +1512,145 @@ function boot() {
     }
   });
 }
+/* =========================================================
+   LEAF FALL DECORATION
+   ========================================================= */
+window.addEventListener("load", () => {
+  try {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      console.log("[Leaf Fall] Disabled by OS reduce-motion settings.");
+      return;
+    }
+    if (window.__leafFallInit) return;
+    window.__leafFallInit = true;
+
+    const container = document.createElement("div");
+    container.className = "leaf-fall-container";
+    container.setAttribute("aria-hidden", "true");
+    document.body.appendChild(container);
+
+    console.log("[Leaf Fall] Animation started successfully.");
+
+    const LEAVES = ["🍃", "🍂", "🍁", "🌿"];
+    const MAX_ACTIVE = 18;
+    let active = 0;
+
+    function spawnLeaf() {
+      if (active >= MAX_ACTIVE || document.hidden) return;
+
+      const leaf = document.createElement("div");
+      leaf.className = "leaf";
+
+      const inner = document.createElement("span");
+      inner.textContent = LEAVES[Math.floor(Math.random() * LEAVES.length)];
+      leaf.appendChild(inner);
+
+      const startX = Math.random() * 100;
+      const size = 18 + Math.random() * 18; // 18px to 36px
+      const duration = 12 + Math.random() * 10;
+      const delay = Math.random() * 0.8;
+      const opacity = 0.5 + Math.random() * 0.4; // Brighter
+
+      leaf.style.setProperty("--start-x", startX + "vw");
+      leaf.style.setProperty("--size", size + "px");
+      leaf.style.setProperty("--duration", duration + "s");
+      leaf.style.setProperty("--delay", delay + "s");
+      leaf.style.setProperty("--max-opacity", opacity);
+
+      active++;
+      container.appendChild(leaf);
+
+      const cleanup = () => {
+        leaf.removeEventListener("animationend", onEnd);
+        if (leaf.parentNode) leaf.parentNode.removeChild(leaf);
+        active = Math.max(0, active - 1);
+      };
+      
+      const onEnd = (e) => {
+        if (e.animationName === "leafFall") cleanup();
+      };
+      
+      leaf.addEventListener("animationend", onEnd);
+      setTimeout(cleanup, (duration + delay) * 1000 + 1500);
+    }
+
+    // Initial burst
+    for (let i = 0; i < 3; i++) setTimeout(spawnLeaf, i * 400);
+
+    // Continuous spawn
+    setInterval(() => {
+      if (Math.random() < 0.7) spawnLeaf();
+    }, 1200);
+
+  } catch (err) {
+    console.error("[Leaf Fall] Failed to initialize:", err);
+  }
+});
+/* =========================================================
+   MODERN FLOATING MUSIC PLAYER LOGIC (FIXED)
+   ========================================================= */
+document.addEventListener("DOMContentLoaded", () => {
+  const bgMusic = document.getElementById("bg-music");
+  const musicWidget = document.getElementById("music-widget");
+  const musicBtn = document.getElementById("music-toggle");
+  const musicIcon = document.getElementById("music-icon");
+  const musicStatus = document.getElementById("music-status");
+  
+  if (!bgMusic || !musicBtn || !musicWidget) return;
+
+  bgMusic.volume = 0.3; 
+  let userPaused = false; 
+
+  // 1. Sync the UI with the actual audio state
+  const updateUI = () => {
+    if (bgMusic.paused) {
+      musicWidget.classList.remove("is-playing");
+      musicIcon.textContent = "▶️"; 
+      musicStatus.textContent = "Paused";
+    } else {
+      musicWidget.classList.add("is-playing");
+      musicIcon.textContent = "⏸️"; 
+      musicStatus.textContent = "Playing";
+    }
+  };
+
+  // Listen to the actual audio events to update the UI
+  bgMusic.addEventListener("play", updateUI);
+  bgMusic.addEventListener("pause", updateUI);
+
+  // 2. Pause/Play Button
+  musicBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation(); 
+    
+    if (bgMusic.paused) {
+      userPaused = false;
+      bgMusic.play().catch(err => console.warn("Play failed:", err));
+    } else {
+      userPaused = true;
+      bgMusic.pause();
+    }
+  });
+
+  // 3. Autoplay Logic (Waits for first click if blocked by browser)
+  setTimeout(() => {
+    if (userPaused) return;
+
+    bgMusic.play().catch(() => {
+      console.log("[Music] Autoplay blocked. Waiting for user interaction...");
+      
+      const playOnInteraction = () => {
+        if (!userPaused) {
+          bgMusic.play().catch(() => {});
+        }
+        document.removeEventListener("click", playOnInteraction);
+        document.removeEventListener("touchstart", playOnInteraction);
+      };
+      
+      document.addEventListener("click", playOnInteraction, { once: true });
+      document.addEventListener("touchstart", playOnInteraction, { once: true });
+    });
+  }, 1000);
+});
 
 boot();
