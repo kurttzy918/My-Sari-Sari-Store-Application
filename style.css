@@ -8910,3 +8910,134 @@ html[data-theme="light"] body .topbar {
 .music-widget:not(.is-playing) .music-control:hover {
   background: #475569;
 }
+/* =========================================================
+   SIDEBAR — Always dark, even in light mode
+   ========================================================= */
+html[data-theme="light"] body .bottom-nav,
+html[data-theme="light"] #app-shell .bottom-nav,
+html[data-theme="light"] .bottom-nav {
+  background: #0F172A !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Nav buttons */
+html[data-theme="light"] .bottom-nav .nav-btn {
+  color: #94A3B8 !important;
+}
+html[data-theme="light"] .bottom-nav .nav-btn:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #E2E8F0 !important;
+}
+html[data-theme="light"] .bottom-nav .nav-btn.active {
+  background: rgba(255, 153, 0, 0.15) !important;
+  color: #FF9900 !important;
+  border-left: 3px solid #FF9900 !important;
+}
+html[data-theme="light"] .bottom-nav .nav-btn.active .nav-icon {
+  color: #FF9900 !important;
+}
+
+/* Group labels ("OVERVIEW", "SALES", …) */
+html[data-theme="light"] .bottom-nav .nav-group-label {
+  color: rgba(148, 163, 184, 0.65) !important;
+}
+
+/* Separators */
+html[data-theme="light"] .bottom-nav .sidebar-brand {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+html[data-theme="light"] .bottom-nav .nav-group + .nav-group {
+  border-top-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Logout */
+html[data-theme="light"] .bottom-nav .nav-btn-logout {
+  color: #FCA5A5 !important;
+}
+html[data-theme="light"] .bottom-nav .nav-btn-logout:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #FCA5A5 !important;
+}
+
+/* Download button */
+html[data-theme="light"] .bottom-nav .nav-btn-download {
+  background: rgba(255, 153, 0, 0.10) !important;
+  border-color: rgba(255, 153, 0, 0.30) !important;
+  color: #FF9900 !important;
+}
+html[data-theme="light"] .bottom-nav .nav-btn-download:hover {
+  background: rgba(255, 153, 0, 0.20) !important;
+  border-color: #FF9900 !important;
+  color: #FFFFFF !important;
+}
+html[data-theme="light"] .bottom-nav .nav-btn-download.is-installed {
+  background: rgba(16, 185, 129, 0.10) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #34D399 !important;
+}
+
+/* Share button */
+html[data-theme="light"] .bottom-nav .nav-btn-share {
+  background: rgba(96, 165, 250, 0.10) !important;
+  border-color: rgba(96, 165, 250, 0.25) !important;
+  color: #93C5FD !important;
+}
+html[data-theme="light"] .bottom-nav .nav-btn-share:hover {
+  background: rgba(96, 165, 250, 0.20) !important;
+  border-color: #60A5FA !important;
+  color: #DBEAFE !important;
+}
+
+/* Terms button */
+html[data-theme="light"] .bottom-nav .nav-btn-terms {
+  color: #94A3B8 !important;
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+html[data-theme="light"] .bottom-nav .nav-btn-terms:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #FF9900 !important;
+}
+
+/* Workspace switcher */
+html[data-theme="light"] .bottom-nav .workspace-switcher-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #E2E8F0 !important;
+}
+html[data-theme="light"] .bottom-nav .workspace-switcher-btn:hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: #FF9900 !important;
+}
+html[data-theme="light"] .bottom-nav .ws-switcher-label {
+  color: rgba(148, 163, 184, 0.70) !important;
+}
+html[data-theme="light"] .bottom-nav .ws-switcher-name {
+  color: #E2E8F0 !important;
+}
+html[data-theme="light"] .bottom-nav .ws-switcher-caret {
+  color: #94A3B8 !important;
+}
+html[data-theme="light"] .bottom-nav .workspace-switcher-menu {
+  background: #1E293B !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+html[data-theme="light"] .bottom-nav .ws-menu-item {
+  color: #E2E8F0 !important;
+}
+html[data-theme="light"] .bottom-nav .ws-menu-item:hover {
+  background: rgba(255, 153, 0, 0.15) !important;
+}
+html[data-theme="light"] .bottom-nav .ws-menu-item.is-active {
+  background: rgba(255, 153, 0, 0.20) !important;
+}
+html[data-theme="light"] .bottom-nav .ws-menu-item-role {
+  color: rgba(148, 163, 184, 0.70) !important;
+}
+
+/* Scrollbar */
+html[data-theme="light"] .bottom-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+html[data-theme="light"] .bottom-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}

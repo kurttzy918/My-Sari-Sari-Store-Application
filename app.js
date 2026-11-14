@@ -1085,6 +1085,9 @@ function onLoggedOut() {
   stopAutoSyncTicker();
   stopThemeRotationTicker();
   stopUserCountTicker();
+  
+  // ✅ Pause music on logout
+  if (window.pauseBackgroundMusic) window.pauseBackgroundMusic();
 
   updateTopbarAvatar();
   updateTopbarGreeting();
@@ -1104,6 +1107,10 @@ function onPending() {
   stopThemeRotationTicker();
   stopUserCountTicker();
   state._postApprovalRan = false;
+
+// ✅ Pause music on pending screen
+  if (window.pauseBackgroundMusic) window.pauseBackgroundMusic();
+
 }
 
 function runPostApprovalRenders() {
@@ -1148,12 +1155,14 @@ function onApproved(userData) {
   const shellVisible = !document.getElementById("app-shell")?.classList.contains("hidden");
   const alreadyRan   = !!state._postApprovalRan;
 
+  // ✅ Start the music here
+  if (window.startBackgroundMusic) window.startBackgroundMusic();
+
   if (shellVisible && alreadyRan) {
     applyRoleVisibility();
     updateTopbarRoleBadge();
     // Re-ensure directory entry (name may have changed)
     ensureDirectoryEntry(false).catch(() => {});
-    // ✅ Still try to show pending announcements for a returning user
     setTimeout(() => flushPendingAnnouncements(), 600);
     return;
   }
@@ -1501,6 +1510,9 @@ function boot() {
       stopThemeRotationTicker();
       stopUserCountTicker();
 
+      // ✅ Pause music on teardown
+      if (window.pauseBackgroundMusic) window.pauseBackgroundMusic();
+
       if (state.unsubscribeWorkspace) {
         try { state.unsubscribeWorkspace(); } catch {}
         state.unsubscribeWorkspace = null;
@@ -1587,7 +1599,7 @@ window.addEventListener("load", () => {
   }
 });
 /* =========================================================
-   MODERN FLOATING MUSIC PLAYER LOGIC (FIXED)
+   MODERN FLOATING MUSIC PLAYER LOGIC (UPDATED)
    ========================================================= */
 document.addEventListener("DOMContentLoaded", () => {
   const bgMusic = document.getElementById("bg-music");
@@ -1599,7 +1611,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!bgMusic || !musicBtn || !musicWidget) return;
 
   bgMusic.volume = 0.3; 
-  let userPaused = false; 
 
   // 1. Sync the UI with the actual audio state
   const updateUI = () => {
@@ -1624,33 +1635,41 @@ document.addEventListener("DOMContentLoaded", () => {
     e.stopPropagation(); 
     
     if (bgMusic.paused) {
-      userPaused = false;
       bgMusic.play().catch(err => console.warn("Play failed:", err));
     } else {
-      userPaused = true;
       bgMusic.pause();
     }
   });
 
-  // 3. Autoplay Logic (Waits for first click if blocked by browser)
-  setTimeout(() => {
-    if (userPaused) return;
-
-    bgMusic.play().catch(() => {
-      console.log("[Music] Autoplay blocked. Waiting for user interaction...");
-      
-      const playOnInteraction = () => {
-        if (!userPaused) {
+  // 3. Expose functions to start/stop music globally
+  window.startBackgroundMusic = () => {
+    if (!bgMusic.paused) return; // Already playing
+    
+    const playPromise = bgMusic.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        console.log("[Music] Autoplay blocked. Waiting for user interaction inside app...");
+        // Fallback: Only listen for clicks inside the app-shell, not on the login screen
+        const shell = document.getElementById("app-shell");
+        if (!shell) return;
+        
+        const playOnInteraction = () => {
           bgMusic.play().catch(() => {});
-        }
-        document.removeEventListener("click", playOnInteraction);
-        document.removeEventListener("touchstart", playOnInteraction);
-      };
-      
-      document.addEventListener("click", playOnInteraction, { once: true });
-      document.addEventListener("touchstart", playOnInteraction, { once: true });
-    });
-  }, 1000);
+          shell.removeEventListener("click", playOnInteraction);
+          shell.removeEventListener("touchstart", playOnInteraction);
+        };
+        
+        shell.addEventListener("click", playOnInteraction, { once: true });
+        shell.addEventListener("touchstart", playOnInteraction, { once: true });
+      });
+    }
+  };
+
+  window.pauseBackgroundMusic = () => {
+    if (bgMusic && !bgMusic.paused) {
+      bgMusic.pause();
+    }
+  };
 });
 
 boot();
